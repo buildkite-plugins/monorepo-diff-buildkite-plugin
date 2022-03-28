@@ -242,6 +242,23 @@ EOM
           "config": {
             "command": ["echo one", "echo two"]
           }
+        },
+        {
+          "path": "**/*.md",
+          "skip_path": "**/*.secret.md",
+          "config": {
+            "trigger": "markdown-pipeline"
+          }
+        },
+        {
+          "path": "**/*.md",
+          "skip_path": [
+            "**/*.secret.md",
+            "CONTRIBUTING.md",
+          ],
+          "config": {
+            "trigger": "markdown-pipeline"
+          }
         }
       ]
     }

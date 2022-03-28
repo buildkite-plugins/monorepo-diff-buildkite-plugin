@@ -27,6 +27,12 @@ It defines a list of paths or path to monitor for changes in the monorepo. It ch
 
 A path or a list of paths to be watched, This part specifies which directory should be monitored. It can also be a glob pattern. For example specify `path: "**/*.md"` to match all markdown files. A list of paths can be provided to trigger the desired pipeline or run command or even do a pipeline upload.
 
+#### `skip_path`
+
+A path or a list of paths to be ignored, which can be an exact path, or a glob.
+
+This is intended to be used in conjunction with `path`, and allows omitting specific paths from being matched.
+
 #### `config`
 
 This is a sub-section that provides configuration for running commands or triggering another pipeline when changes occur in the specified path
