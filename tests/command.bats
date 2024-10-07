@@ -123,7 +123,7 @@ EOM
 
 @test "Pipeline is generated with build config from env" {
   export BUILDKITE_BRANCH="go-rewrite"
-  export BUILDKITE_MESSAGE="some message"
+  export BUILDKITE_MESSAGE="some \$\$ message"
   export BUILDKITE_COMMIT="commit-hash"
 
   export BUILDKITE_PLUGINS='[{
@@ -149,7 +149,7 @@ EOM
 steps:
 - trigger: foo-service
   build:
-    message: some message
+    message: some \$\$\$\$ message
     branch: go-rewrite
     commit: commit-hash
 EOM

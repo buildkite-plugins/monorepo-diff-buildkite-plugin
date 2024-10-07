@@ -272,17 +272,24 @@ func setNotify(notifications *[]StepNotify, rawNotify *[]map[string]interface{})
 	*rawNotify = nil
 }
 
+func escapeInterpolation(s string) string {
+	return strings.ReplaceAll(s, "$", "$$")
+}
+
 func setBuild(build *Build) {
+	// when defaulting to existing literal values make sure those values
+	// don't trigger interpolation with any stray dollar characters.
+
 	if build.Message == "" {
-		build.Message = env("BUILDKITE_MESSAGE", "")
+		build.Message = escapeInterpolation(env("BUILDKITE_MESSAGE", ""))
 	}
 
 	if build.Branch == "" {
-		build.Branch = env("BUILDKITE_BRANCH", "")
+		build.Branch = escapeInterpolation(env("BUILDKITE_BRANCH", ""))
 	}
 
 	if build.Commit == "" {
-		build.Commit = env("BUILDKITE_COMMIT", "")
+		build.Commit = escapeInterpolation(env("BUILDKITE_COMMIT", ""))
 	}
 }
 
