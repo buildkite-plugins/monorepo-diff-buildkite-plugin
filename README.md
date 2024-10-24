@@ -291,3 +291,8 @@ Thanks to [@chronotc](https://github.com/chronotc) and [Monebag](https://github.
 ## License
 
 MIT (see [LICENSE](LICENSE))
+
+
+## How to Contribute
+
+Please read [contributing guide](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/blob/master/CONTRIBUTING.md). 
