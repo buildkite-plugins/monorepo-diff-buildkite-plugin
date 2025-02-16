@@ -72,6 +72,8 @@ get_version() {
 }
 
 download_binary_and_run() {
+  
+  echo "downloading binary and running"
   get_architecture || return 1
   local _arch="$RETVAL"
   local _executable="monorepo-diff-buildkite-plugin"
@@ -85,7 +87,7 @@ download_binary_and_run() {
   else
     _url=${_repo}/releases/download/${_version}/${_executable}_${_arch}
   fi
-
+  echo "downloading from $_url"
   local test_mode="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false}"
 
   if [[ "$test_mode" == "false" ]]; then
