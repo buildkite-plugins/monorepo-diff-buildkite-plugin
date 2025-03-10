@@ -65,8 +65,15 @@ downloader() {
 
 get_version() {
   local _plugin=${BUILDKITE_PLUGINS:-""}
-  _version=$(echo "$_plugin" | sed -e 's/.*monorepo-diff-buildkite-plugin//' -e 's/.*#//' -e 's/\".*//')
-  if [[ "$_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then true; else _version=""; fi
+  local _version=""
+
+  if [[ "$_plugin" =~ ^.*monorepo-diff-buildkite-plugin#?([^\"]+) ]]; then
+    _version=${BASH_REMATCH[1]}
+  fi
+
+  if [[ "$_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    true
+  fi
     
   RETVAL="$_version"
 }
