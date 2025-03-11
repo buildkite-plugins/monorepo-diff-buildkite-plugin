@@ -73,6 +73,8 @@ get_version() {
 
   if [[ "$_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
     true
+  else
+    _version=""
   fi
     
   RETVAL="$_version"
