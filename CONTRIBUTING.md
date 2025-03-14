@@ -23,10 +23,6 @@ To get started with development:
 
 All changes must be unit tested, and test coverage should meet the project's minimum threshold of 73%. Run `make test` to execute all tests and generate coverage reports before submitting a pull request.
 
-For `bats` plugin tests:
-1. Modify the tests as needed.
-2. Run `make build-docker-test && make test-docker` to build the Docker image and execute the tests within the Docker container.
-
 ## Formatting
 
 Please format all code with `gofmt` using the latest version of Go and ensure it passes `go vet`. Additionally, the plugin must be linted with the [buildkite-plugin-linter](https://github.com/buildkite-plugins/buildkite-plugin-linter).
