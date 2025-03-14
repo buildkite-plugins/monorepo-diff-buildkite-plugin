@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -417,4 +418,176 @@ func TestPluginDefaultConfigCommand(t *testing.T) {
 	got, err := initializePlugin(param)
 	assert.NoError(t, err)
 	assert.Equal(t, defaultPluginWithDefault(), got)
+}
+
+func TestPluginWithoutWaitProperty(t *testing.T) {
+	param := `[
+		{
+			"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+				"watch": [
+					{
+						"path": [
+							".buildkite/**/*"
+							],
+						"config": {
+							"label": "Example label",
+							"command": "echo hello world"
+						}
+					}, {
+						"default": {
+							"config": {
+								"label": "Default label",
+								"command": "echo default hello world"
+							}
+						}
+					}
+				]
+			}
+		}
+	]
+	`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.Equal(t, defaultPluginWithDefault(), got)
+	assert.False(t, got.Wait)
+}
+
+func TestPluginWithBuildConfigFromEnv(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": ".buildkite/**/*",
+					"config": {
+						"trigger": "foo-service"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	fmt.Print(err)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{".buildkite/**/*"},
+				Step: Step{
+					Trigger: "foo-service",
+					Build: Build{
+						Message: "fix: temp file not correctly deleted",
+						Branch:  "go-rewrite",
+						Commit:  "123",
+					},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got): \n%s", diff)
+	}
+}
+
+func TestPluginWithMultiplePluginVersions(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#v1.2.0": {
+			"diff":"echo foo-service/",
+				"log_level": "debug",
+				"watch": [
+					{
+						"path":"foo-service/",
+						"config": {
+							"trigger":"foo-service"
+						}
+					},
+					{
+						"path":"bar-service/",
+						"config": {
+							"trigger":"foo-service"
+						}
+					}
+				]
+			}
+		},{
+			"github.com/buildkite-plugins/kubernetes-buildkite-plugin": {
+				"checkout": {
+					"gitCredentialsSecret": {
+						"secretName": "csb-playground-buildkite"
+					}
+				},
+				"podSpecPatch": {
+					"volumes": [{
+						"name": "git-credentials-ro",
+						"secret": {
+							"secretName": "csb-playground-buildkite",
+							"defaultMode": 420
+						}
+					}],
+					"containers": [{
+						"env": [{
+							"name": "BUILDKITE_SHELL",
+							"value": "/bin/bash -ec"
+						}],
+						"name": "container-0",
+						"image": "alpine:latest"
+					}]
+				}
+			}
+	},{
+		"github.com/buildkite-plugins/cache-buildkite-plugin#v1.5.1": {
+			"path": ".cache/pip",
+			"save": "file",
+			"backend": "s3",
+			"restore": "file",
+			"manifest": ".pre-commit-config.yaml",
+			"compression": "tgz"
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	fmt.Print(err)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "echo foo-service/",
+		Wait:          false,
+		LogLevel:      "debug",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"foo-service/"},
+				Step: Step{
+					Trigger: "foo-service",
+					Build: Build{
+						Message: "fix: temp file not correctly deleted",
+						Branch:  "go-rewrite",
+						Commit:  "123",
+					},
+				},
+			},
+			{
+				Paths: []string{"bar-service/"},
+				Step: Step{
+					Trigger: "foo-service",
+					Build: Build{
+						Message: "fix: temp file not correctly deleted",
+						Branch:  "go-rewrite",
+						Commit:  "123",
+					},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got): \n%s", diff)
+	}
 }
