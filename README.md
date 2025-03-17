@@ -108,7 +108,6 @@ https://stackoverflow.com/questions/1527234/finding-a-branch-point-with-git and 
 ```
 README.md
 lib/trigger.bash
-tests/trigger.bats
 ```
 
 Default: `git diff --name-only HEAD~1`
