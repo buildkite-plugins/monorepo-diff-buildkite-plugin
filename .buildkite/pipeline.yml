@@ -190,12 +190,12 @@ steps:
   - label: ":linux: Release"
     command: healthcheck
     plugins:
-      - aws-assume-role-with-web-identity:
+      - aws-assume-role-with-web-identity#v1.2.0:
           role-arn: arn:aws:iam::445615400570:role/pipeline-buildkite-monorail-plugin-monorepo
       - aws-ssm#v1.0.0:
           parameters:
             GITHUB_TOKEN: /pipelines/buildkite/monorail-plugin-monorepo/GH_TOKEN
-      - docker#v5.9.0:
+      - docker#v5.12.0:
           image: "goreleaser/goreleaser"
           always-pull: true
           workdir: /plugin
