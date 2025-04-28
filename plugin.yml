@@ -67,8 +67,9 @@ configuration:
             label:
               type: string
             build:
-              type: object
+              type: object       
               properties:
+                meta-data: object
                 message:
                   type: string
                 commit:
