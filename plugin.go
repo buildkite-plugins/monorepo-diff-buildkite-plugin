@@ -347,7 +347,7 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 	watch.RawSkipPath = nil
 }
 
-// appends build metadata to Step.Env and Step.Build.Env
+// appends build metadata
 func appendMetadata(watch *WatchConfig, metadata map[string]string) {
 	// Initialize the Metadata map if it's nil
 	if watch.Step.Build.Metadata == nil {
