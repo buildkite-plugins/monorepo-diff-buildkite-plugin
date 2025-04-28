@@ -210,7 +210,7 @@ func generatePipeline(steps []Step, plugin Plugin) (*os.File, bool, error) {
 	}
 
 	pipeline := map[string][]yaml.Marshaler{
-		"steps": yamlSteps,
+		"stepsS": yamlSteps,
 	}
 
 	if len(yamlNotify) > 0 {
