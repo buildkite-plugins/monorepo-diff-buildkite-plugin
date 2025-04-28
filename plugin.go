@@ -93,11 +93,12 @@ type Agent map[string]string
 
 // Build is buildkite build definition
 type Build struct {
-	Message string            `yaml:"message,omitempty"`
-	Branch  string            `yaml:"branch,omitempty"`
-	Commit  string            `yaml:"commit,omitempty"`
-	RawEnv  interface{}       `json:"env" yaml:",omitempty"`
-	Env     map[string]string `yaml:"env,omitempty"`
+	Message  string            `yaml:"message,omitempty"`
+	Branch   string            `yaml:"branch,omitempty"`
+	Commit   string            `yaml:"commit,omitempty"`
+	RawEnv   interface{}       `json:"env" yaml:",omitempty"`
+	Env      map[string]string `yaml:"env,omitempty"`
+	Metadata map[string]string `yaml:"meta_data,omitempty"`
 	// Notify  []Notify          `yaml:"notify,omitempty"`
 }
 
