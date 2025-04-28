@@ -22,6 +22,7 @@ type Plugin struct {
 	Watch         []WatchConfig
 	RawEnv        interface{} `json:"env"`
 	Env           map[string]string
+	Metadata      map[string]string
 	RawNotify     []map[string]interface{} `json:"notify" yaml:",omitempty"`
 	Notify        []PluginNotify           `yaml:"notify,omitempty"`
 }
@@ -175,6 +176,8 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 		}
 
 		appendEnv(&plugin.Watch[i], plugin.Env)
+
+		appendMetadata(&plugin.Watch[i], plugin.Metadata)
 
 		p.RawPath = nil
 		p.RawSkipPath = nil
@@ -342,6 +345,19 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 	watch.Step.Build.RawEnv = nil
 	watch.RawPath = nil
 	watch.RawSkipPath = nil
+}
+
+// appends build metadata to Step.Env and Step.Build.Env
+func appendMetadata(watch *WatchConfig, metadata map[string]string) {
+	// Initialize the Metadata map if it's nil
+	if watch.Step.Build.Metadata == nil {
+		watch.Step.Build.Metadata = make(map[string]string)
+	}
+
+	// Append the provided metadata to the Step.Build.Metadata field
+	for key, value := range metadata {
+		watch.Step.Build.Metadata[key] = value
+	}
 }
 
 // parse env in format from env=env-value to map[env] = env-value
