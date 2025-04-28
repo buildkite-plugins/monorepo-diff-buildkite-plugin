@@ -2,12 +2,12 @@
 set -euo pipefail
 
 check_cmd() {
-  command -v "$1" > /dev/null 2>&1
+  command -v "$1" >/dev/null 2>&1
   return $?
 }
 
 say() {
-    echo "$1"
+  echo "$1"
 }
 
 err() {
@@ -76,7 +76,7 @@ get_version() {
   else
     _version=""
   fi
-    
+
   RETVAL="$_version"
 }
 
@@ -84,7 +84,7 @@ download_binary_and_run() {
   get_architecture || return 1
   local _arch="$RETVAL"
   local _executable="monorepo-diff-buildkite-plugin"
-  local _repo="https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin"
+  local _repo="https://github.com/jykingston/monorepo-diff-buildkite-plugin"
 
   get_version || return 1
   local _version="$RETVAL"
@@ -106,7 +106,7 @@ download_binary_and_run() {
 
   # todo: move it to a more secure place
   chmod +x ${_executable}
-  
+
   ./${_executable}
 }
 
