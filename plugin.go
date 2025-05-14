@@ -81,6 +81,7 @@ type Step struct {
 	Agents    Agent                    `yaml:"agents,omitempty"`
 	Artifacts []string                 `yaml:"artifacts,omitempty"`
 	RawEnv    interface{}              `json:"env" yaml:",omitempty"`
+	Plugins   []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
 	Env       map[string]string        `yaml:"env,omitempty"`
 	Async     bool                     `yaml:"async,omitempty"`
 	SoftFail  interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`

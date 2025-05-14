@@ -591,3 +591,45 @@ func TestPluginWithMultiplePluginVersions(t *testing.T) {
 		t.Fatalf("plugin diff (-want +got): \n%s", diff)
 	}
 }
+
+func TestPluginShouldPreserveStepPlugins(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": ".buildkite/**/*",
+					"config": {
+						"plugins": [
+							{ "some-plugin#v1": { "foo": "bar" } }
+						]
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	fmt.Print(err)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{".buildkite/**/*"},
+				Step: Step{
+					Plugins: []map[string]interface{}{
+						{"some-plugin#v1": map[string]interface{}{"foo": "bar"}},
+					},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
