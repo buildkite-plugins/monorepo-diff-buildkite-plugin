@@ -58,12 +58,12 @@ steps:
             - path: docker/
               config:
                 group: docker/**
-                  steps:
-                    - plugins:
-                        - docker#latest:
-                            build: service
-                            push: service
-                    - command: docker/run-e2e-tests.sh
+                steps:
+                  - plugins:
+                      - docker#latest:
+                          build: service
+                          push: service
+                  - command: docker/run-e2e-tests.sh
 ```
 
 - Changes to the path `app/` triggers the pipeline `app-deploy`
