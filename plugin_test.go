@@ -162,6 +162,16 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						"command": "echo hello-group",
 						"soft_fail": true
 					}
+				},
+				{
+					"path": "watch-path-3",
+					"config": {
+						"group": "my group",
+						"steps": [
+							{ "command": "echo hello-group from first step" },
+							{ "command": "echo hello-group from second step" }
+						]
+					}
 				}
 			]
 		}
@@ -264,6 +274,16 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						"env3": "env-3",
 					},
 					SoftFail: true,
+				},
+			},
+			{
+				Paths: []string{"watch-path-3"},
+				Step: Step{
+					Group:   "my group",
+					Steps: []Step{
+						{ Command: "echo hello-group from first step" },
+						{ Command: "echo hello-group from second step" },
+					},
 				},
 			},
 		},
