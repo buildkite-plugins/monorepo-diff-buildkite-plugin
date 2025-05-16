@@ -633,3 +633,41 @@ func TestPluginShouldPreserveStepPlugins(t *testing.T) {
 		t.Fatalf("plugin diff (-want +got):\n%s", diff)
 	}
 }
+
+func TestPluginShouldPreserveStepBranches(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": ".buildkite/**/*",
+					"config": {
+						"branches": "!main feature/*"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	fmt.Print(err)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{".buildkite/**/*"},
+				Step: Step{
+					Branches: "!main feature/*",
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
