@@ -82,7 +82,9 @@ steps:
                 - "product-service/infrastructure/"
               config:
                 group: "my group"
-                command: "echo i-am-running-in-a-group"
+                steps:
+                  - command: "echo i-am-running-in-a-group"
+                  - command: "echo i-am-also-running-in-a-group"
 
   - label: ":bomb: Testing hooks"
     plugins:
