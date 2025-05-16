@@ -47,7 +47,7 @@ This is a sub-section that provides configuration for running commands or trigge
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.3.0:
+      - monorepo-diff#v1.4.0:
           watch:
             - path: app/
               config:
@@ -127,7 +127,7 @@ A default `config` to run if no paths are matched, the `config` key is not requi
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.3.0:
+      - monorepo-diff#v1.4.0:
           watch:
             - path: "bar-service/"
               config:
@@ -148,7 +148,7 @@ The object values provided in this configuration will be appended to `env` prope
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.3.0:
+      - monorepo-diff#v1.4.0:
           watch:
             - path: "foo-service/"
               config:
@@ -169,7 +169,7 @@ Add `log_level` property to set the log level. Supported log levels are `debug` 
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.3.0:
+      - monorepo-diff#v1.4.0:
           log_level: "debug" # defaults to "info"
           watch:
             - path: "foo-service/"
@@ -199,7 +199,7 @@ By setting `wait` to `true`, the build will wait until the triggered pipeline bu
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.3.0:
+      - monorepo-diff#v1.4.0:
           diff: "git diff --name-only $(head -n 1 last_successful_build)"
           interpolation: false
           env:
