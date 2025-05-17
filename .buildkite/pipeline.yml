@@ -12,7 +12,7 @@ steps:
 
   - label: ":sparkles: Lint"
     plugins:
-      plugin-linter#v3.2.0:
+      plugin-linter#v3.3.0:
         id: monorepo-diff
 
   - label: ":golang: Test"
