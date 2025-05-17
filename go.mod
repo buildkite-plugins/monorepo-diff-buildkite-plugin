@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/bmatcuk/doublestar/v2 v2.0.4
-	github.com/buildkite/bintest v2.0.0+incompatible
+	github.com/buildkite/bintest v2.1.0+incompatible
 	github.com/google/go-cmp v0.6.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.1
