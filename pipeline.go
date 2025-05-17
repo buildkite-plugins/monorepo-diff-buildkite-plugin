@@ -31,7 +31,11 @@ func (s Step) MarshalYAML() (interface{}, error) {
 
 	label := s.Group
 	s.Group = ""
-	return Group{Label: label, Steps: []Step{s}}, nil
+	stps := []Step{s}
+	if s.Steps != nil {
+		stps = s.Steps
+	}
+	return Group{Label: label, Steps: stps}, nil
 }
 
 func (n PluginNotify) MarshalYAML() (interface{}, error) {
