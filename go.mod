@@ -1,12 +1,13 @@
 module github.com/buildkite-plugins/monorepo-diff-buildkite-plugin
 
-go 1.21
+go 1.22
 
 toolchain go1.24.3
 
 require (
 	github.com/bmatcuk/doublestar/v2 v2.0.4
 	github.com/buildkite/bintest v2.0.0+incompatible
+	github.com/buildkite/bintest/v3 v3.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.1
