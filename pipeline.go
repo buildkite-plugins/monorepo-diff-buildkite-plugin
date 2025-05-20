@@ -39,7 +39,8 @@ func (s Step) MarshalYAML() (interface{}, error) {
 }
 
 func (n PluginNotify) MarshalYAML() (interface{}, error) {
-	return n, nil
+	type Alias PluginNotify
+	return (Alias)(n), nil
 }
 
 // PipelineGenerator generates pipeline file
