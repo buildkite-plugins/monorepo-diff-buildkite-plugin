@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/bmatcuk/doublestar/v2"
+	"github.com/bmatcuk/doublestar/v4"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
