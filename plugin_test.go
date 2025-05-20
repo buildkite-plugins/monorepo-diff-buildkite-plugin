@@ -279,10 +279,10 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 			{
 				Paths: []string{"watch-path-3"},
 				Step: Step{
-					Group:   "my group",
+					Group: "my group",
 					Steps: []Step{
-						{ Command: "echo hello-group from first step" },
-						{ Command: "echo hello-group from second step" },
+						{Command: "echo hello-group from first step"},
+						{Command: "echo hello-group from second step"},
 					},
 				},
 			},

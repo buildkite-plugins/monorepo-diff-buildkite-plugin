@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/bmatcuk/doublestar/v2"
+	"github.com/bmatcuk/doublestar/v4"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // WaitStep represents a Buildkite Wait Step
@@ -39,7 +39,8 @@ func (s Step) MarshalYAML() (interface{}, error) {
 }
 
 func (n PluginNotify) MarshalYAML() (interface{}, error) {
-	return n, nil
+	type Alias PluginNotify
+	return (Alias)(n), nil
 }
 
 // PipelineGenerator generates pipeline file
