@@ -113,6 +113,30 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 			defaultStep = &w.Step
 			continue
 		}
+		except := false
+
+		for _, ex := range w.ExceptPaths {
+			if except {
+				break
+			}
+
+			for _, f := range files {
+				exceptMatch, errExcept := matchPath(ex, f)
+				if errExcept != nil {
+					return nil, errExcept
+				}
+				if exceptMatch {
+					log.Printf("excepted: %s\n", f)
+					except = true
+					break
+				}
+			}
+		}
+
+		if except {
+			continue
+		}
+
 		for _, p := range w.Paths {
 			for _, f := range files {
 				match, err := matchPath(p, f)
