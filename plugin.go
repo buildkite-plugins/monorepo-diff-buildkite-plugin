@@ -170,6 +170,15 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 			}
 		}
 
+		switch p.RawExceptPath.(type) {
+		case string:
+			plugin.Watch[i].ExceptPaths = []string{plugin.Watch[i].RawExceptPath.(string)}
+		case []interface{}:
+			for _, v := range plugin.Watch[i].RawExceptPath.([]interface{}) {
+				plugin.Watch[i].ExceptPaths = append(plugin.Watch[i].ExceptPaths, v.(string))
+			}
+		}
+
 		if plugin.Watch[i].Step.Trigger != "" {
 			setBuild(&plugin.Watch[i].Step.Build)
 		}
