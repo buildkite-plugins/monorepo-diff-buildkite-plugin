@@ -177,7 +177,13 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 
 		appendEnv(&plugin.Watch[i], plugin.Env)
 
-		appendMetadata(&plugin.Watch[i], plugin.Metadata)
+		// Attempt to parse the metadata after the env's
+		parsedMetadata, err := parseMetadata(plugin.Metadata)
+		if err != nil {
+			return errors.New("failed to parse metadata configuration")
+		}
+
+		appendMetadata(&plugin.Watch[i], parsedMetadata)
 
 		p.RawPath = nil
 		p.RawSkipPath = nil
@@ -349,14 +355,9 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 
 // appends build metadata
 func appendMetadata(watch *WatchConfig, metadata map[string]string) {
-	// Initialize the Metadata map if it's nil
-	if watch.Step.Build.Metadata == nil {
-		watch.Step.Build.Metadata = make(map[string]string)
-	}
-
-	// Append the provided metadata to the Step.Build.Metadata field
-	for key, value := range metadata {
-		watch.Step.Build.Metadata[key] = value
+	for key, _ := range watch.Step.Build.Metadata {
+		metadata[key] = watch.Step.Build.Metadata[key]
+		continue
 	}
 }
 
@@ -379,6 +380,29 @@ func parseEnv(raw interface{}) (map[string]string, error) {
 		if len(key) > 0 && len(value) == 0 {
 			result[key] = env(key, "")
 		}
+
+		if len(value) > 0 {
+			result[key] = strings.TrimSpace(value[0])
+		}
+	}
+
+	return result, nil
+}
+
+// parse metadata in format from key:value to map[key] = value
+func parseMetadata(raw interface{}) (map[string]string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+
+	if _, ok := raw.([]interface{}); !ok {
+		return nil, errors.New("failed to parse metadata configuration")
+	}
+
+	result := make(map[string]string)
+	for _, v := range raw.([]interface{}) {
+		split := strings.Split(v.(string), ":")
+		key, value := strings.TrimSpace(split[0]), split[1:]
 
 		if len(value) > 0 {
 			result[key] = strings.TrimSpace(value[0])

@@ -139,6 +139,11 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 							"message": "build message",
 							"branch": "current branch",
 							"commit": "commit-hash",
+							"meta_data": {
+								"metadata1": "metadata-1",
+								"metadata2": "metadata-2",
+								"metadata3": "metadata-3"
+							},
 							"env": [
 								"foo =bar",
 								"bar= foo"
@@ -201,6 +206,7 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						Message: "some message",
 						Branch:  "go-rewrite",
 						Commit:  "123",
+
 						Env: map[string]string{
 							"env1": "env-1",
 							"env2": "env-2",
@@ -237,6 +243,11 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						Message: "build message",
 						Branch:  "current branch",
 						Commit:  "commit-hash",
+						Metadata: map[string]string{
+							"metadata1": "metadata-1",
+							"metadata2": "metadata-2",
+							"metadata3": "metadata-3",
+						},
 						Env: map[string]string{
 							"foo":  "bar",
 							"bar":  "foo",
