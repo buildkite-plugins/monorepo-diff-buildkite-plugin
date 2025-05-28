@@ -33,12 +33,14 @@ type HookConfig struct {
 
 // WatchConfig Plugin watch configuration
 type WatchConfig struct {
-	RawPath     interface{} `json:"path"`
-	Paths       []string
-	Step        Step        `json:"config"`
-	Default     interface{} `json:"default"`
-	RawSkipPath interface{} `json:"skip_path"`
-	SkipPaths   []string
+	RawPath       interface{} `json:"path"`
+	Paths         []string
+	Step          Step        `json:"config"`
+	Default       interface{} `json:"default"`
+	RawSkipPath   interface{} `json:"skip_path"`
+	RawExceptPath interface{} `json:"except_path"`
+	SkipPaths     []string
+	ExceptPaths   []string
 }
 
 type Group struct {
@@ -147,8 +149,8 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 			}
 			plugin.Watch[i].Default = true
 		} else if p.RawPath != nil {
-			// Path and SkipPath can be string or an array of strings,
-			// handle both cases and create an array of paths on both.
+			// Path, SkipPath and ExceptPath can be string or an array of strings,
+			// handle both cases and create an array of paths on all.
 			switch p.RawPath.(type) {
 			case string:
 				plugin.Watch[i].Paths = []string{plugin.Watch[i].RawPath.(string)}
@@ -165,6 +167,15 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 		case []interface{}:
 			for _, v := range plugin.Watch[i].RawSkipPath.([]interface{}) {
 				plugin.Watch[i].SkipPaths = append(plugin.Watch[i].SkipPaths, v.(string))
+			}
+		}
+
+		switch p.RawExceptPath.(type) {
+		case string:
+			plugin.Watch[i].ExceptPaths = []string{plugin.Watch[i].RawExceptPath.(string)}
+		case []interface{}:
+			for _, v := range plugin.Watch[i].RawExceptPath.([]interface{}) {
+				plugin.Watch[i].ExceptPaths = append(plugin.Watch[i].ExceptPaths, v.(string))
 			}
 		}
 

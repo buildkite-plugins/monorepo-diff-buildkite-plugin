@@ -370,6 +370,27 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 				}},
 			Expected: []Step{},
 		},
+		"step is not included if except path is set": {
+			ChangedFiles: []string{
+				"main/test/test.txt",
+				"main/test/test2.txt",
+				"main/other/other.txt",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:       []string{"**/*"},
+					ExceptPaths: []string{"main/other/**/*"},
+					Step:        Step{Trigger: "service-1"},
+				},
+				{
+					Paths: []string{"main/other/**/*"},
+					Step:  Step{Trigger: "service-2"},
+				},
+			},
+			Expected: []Step{
+				{Trigger: "service-2"},
+			},
+		},
 	}
 
 	for name, tc := range testCases {

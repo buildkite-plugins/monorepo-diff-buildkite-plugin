@@ -33,6 +33,35 @@ A path or a list of paths to be ignored, which can be an exact path, or a glob.
 
 This is intended to be used in conjunction with `path`, and allows omitting specific paths from being matched.
 
+### `except_path`
+
+A path or a list of paths to prevent the paths listed to be matched, which can be an exact path, or a glob.
+
+This is intended to be used in conjunction with `path`, and allows for creating exclusive matches with simpler rules when several files are modified in the same execution.
+
+For example, in the following configuration:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.4.0:
+          watch:
+            - path: "**/*"
+              skip_path: "folder/file"
+              config:
+                trigger: "pipeline-1"
+            - path: "**/*"
+              except_path: "folder/file"
+              config:
+                trigger: "pipeline-2"
+            - path: "folder/file"
+              config:
+                trigger: "pipeline-3"
+```
+
+If a single execution modified `folder/file` only `pipeline-3` will be triggered. But if any other file is modified as well (thus matching `**/*`), `pipeline-1` will also be triggered, but not `pipeline-2`.
+
 ### `config`
 
 This is a sub-section that provides configuration for running commands or triggering another pipeline when changes occur in the specified path. Configuration supports 3 different step types.
@@ -135,7 +164,7 @@ steps:
             - path: "foo-service/"
               config:
                 trigger: "deploy-foo-service"
-            - default: 
+            - default:
                 config: ## <-- Optional
                   command: echo "Hello, world!"
 ```
@@ -249,4 +278,4 @@ MIT (see [LICENSE](LICENSE))
 
 ## How to Contribute
 
-Please read [contributing guide](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/blob/master/CONTRIBUTING.md). 
+Please read [contributing guide](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/blob/master/CONTRIBUTING.md).
