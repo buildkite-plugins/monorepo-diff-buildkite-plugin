@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"path"
 	"strings"
@@ -355,9 +356,14 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 
 // appends build metadata
 func appendMetadata(watch *WatchConfig, metadata map[string]string) {
-	for key, _ := range watch.Step.Build.Metadata {
-		metadata[key] = watch.Step.Build.Metadata[key]
-		continue
+	if metadata == nil || len(metadata) == 0 {
+		return
+	}
+	if watch.Step.Build.Metadata == nil {
+		watch.Step.Build.Metadata = make(map[string]string)
+	}
+	for k, v := range metadata {
+		watch.Step.Build.Metadata[k] = v
 	}
 }
 
@@ -395,21 +401,36 @@ func parseMetadata(raw interface{}) (map[string]string, error) {
 		return nil, nil
 	}
 
-	if _, ok := raw.([]interface{}); !ok {
-		return nil, errors.New("failed to parse metadata configuration")
-	}
-
-	result := make(map[string]string)
-	for _, v := range raw.([]interface{}) {
-		split := strings.Split(v.(string), ":")
-		key, value := strings.TrimSpace(split[0]), split[1:]
-
-		if len(value) > 0 {
-			result[key] = strings.TrimSpace(value[0])
+	switch v := raw.(type) {
+	case map[string]string:
+		return v, nil
+	case map[string]interface{}:
+		result := make(map[string]string)
+		for k, val := range v {
+			result[k] = fmt.Sprintf("%v", val)
 		}
+		return result, nil
+	case []interface{}:
+		result := make(map[string]string)
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				continue
+			}
+			split := strings.SplitN(str, ":", 2)
+			key := strings.TrimSpace(split[0])
+			value := ""
+			if len(split) > 1 {
+				value = strings.TrimSpace(split[1])
+			}
+			if key != "" {
+				result[key] = value
+			}
+		}
+		return result, nil
+	default:
+		return nil, errors.New("failed to parse metadata configuration: unknown type")
 	}
-
-	return result, nil
 }
 
 func getPluginName(s string) string {
