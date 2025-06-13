@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/bmatcuk/doublestar/v2"
+	"github.com/bmatcuk/doublestar/v4"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 // WaitStep represents a Buildkite Wait Step
@@ -31,11 +31,16 @@ func (s Step) MarshalYAML() (interface{}, error) {
 
 	label := s.Group
 	s.Group = ""
-	return Group{Label: label, Steps: []Step{s}}, nil
+	stps := []Step{s}
+	if s.Steps != nil {
+		stps = s.Steps
+	}
+	return Group{Label: label, Steps: stps}, nil
 }
 
 func (n PluginNotify) MarshalYAML() (interface{}, error) {
-	return n, nil
+	type Alias PluginNotify
+	return (Alias)(n), nil
 }
 
 // PipelineGenerator generates pipeline file
@@ -111,6 +116,30 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 			defaultStep = &w.Step
 			continue
 		}
+		except := false
+
+		for _, ex := range w.ExceptPaths {
+			if except {
+				break
+			}
+
+			for _, f := range files {
+				exceptMatch, errExcept := matchPath(ex, f)
+				if errExcept != nil {
+					return nil, errExcept
+				}
+				if exceptMatch {
+					log.Printf("excepted: %s\n", f)
+					except = true
+					break
+				}
+			}
+		}
+
+		if except {
+			continue
+		}
+
 		for _, p := range w.Paths {
 			for _, f := range files {
 				match, err := matchPath(p, f)

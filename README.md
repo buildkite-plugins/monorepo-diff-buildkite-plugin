@@ -19,31 +19,27 @@ Check out the [example monorepo source code](https://github.com/buildkite/monore
 
 If the version number is not provided then the most recent version of the plugin will be used. Do not use version number as `master` or any branch names.
 
-#### `watch`
+### `watch`
 
 It defines a list of paths or path to monitor for changes in the monorepo. It checks to see if there is a change to the subfolders specified in the path
 
-#### `path`
+### `path`
 
 A path or a list of paths to be watched, This part specifies which directory should be monitored. It can also be a glob pattern. For example specify `path: "**/*.md"` to match all markdown files. A list of paths can be provided to trigger the desired pipeline or run command or even do a pipeline upload.
 
-#### `skip_path`
+### `skip_path`
 
 A path or a list of paths to be ignored, which can be an exact path, or a glob.
 
 This is intended to be used in conjunction with `path`, and allows omitting specific paths from being matched.
 
-#### `config`
+### `except_path`
 
-This is a sub-section that provides configuration for running commands or triggering another pipeline when changes occur in the specified path
-Configuration supports 2 different step types.
+A path or a list of paths to prevent the paths listed to be matched, which can be an exact path, or a glob.
 
-- [Trigger](https://buildkite.com/docs/pipelines/trigger-step)
+This is intended to be used in conjunction with `path`, and allows for creating exclusive matches with simpler rules when several files are modified in the same execution.
 
-  The configuration for the `trigger` step https://buildkite.com/docs/pipelines/trigger-step
-
-  **Example**
-  <br/>
+For example, in the following configuration:
 
 ```yaml
 steps:
@@ -52,25 +48,61 @@ steps:
       - monorepo-diff#v1.4.0:
           diff: "git diff --name-only HEAD~1"
           watch:
+            - path: "**/*"
+              skip_path: "folder/file"
+              config:
+                trigger: "pipeline-1"
+            - path: "**/*"
+              except_path: "folder/file"
+              config:
+                trigger: "pipeline-2"
+            - path: "folder/file"
+              config:
+                trigger: "pipeline-3"
+```
+
+If a single execution modified `folder/file` only `pipeline-3` will be triggered. But if any other file is modified as well (thus matching `**/*`), `pipeline-1` will also be triggered, but not `pipeline-2`.
+
+### `config`
+
+This is a sub-section that provides configuration for running commands or triggering another pipeline when changes occur in the specified path. Configuration supports 3 different step types.
+
+- [Trigger](https://buildkite.com/docs/pipelines/configure/step-types/trigger-step)
+- [Command](https://buildkite.com/docs/pipelines/configure/step-types/command-step)
+- [Group](https://buildkite.com/docs/pipelines/configure/step-types/group-step)
+
+:warning: This plugin may accept configurations that are not valid pipeline steps, this is a known issue to keep its code simple and flexible.
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.4.0:
+          watch:
             - path: app/
               config:
                 trigger: "app-deploy"
             - path: test/bin/
               config:
                 command: "echo Make Changes to Bin"
+            - path: docker/
+              config:
+                group: docker/**
+                steps:
+                  - plugins:
+                      - docker#latest:
+                          build: service
+                          push: service
+                  - command: docker/run-e2e-tests.sh
 ```
 
 - Changes to the path `app/` triggers the pipeline `app-deploy`
 - Changes to the path `test/bin` will run the respective configuration command
+- Changes to any file in the docker folder will run the steps in the group
 
- <br/>
-
-⚠️ Warning : The user has to explictly state the paths they want to monitor. For instance if a user, is only watching path `app/` changes made to `app/bin` will not trigger the configuration. This is because the subfolder `/bin` was not specified.
-
- <br/>
+⚠️ Warning : The user has to explictly state the paths they want to monitor or use wildcards. For instance if a user, is only watching path `app/` changes made to `app/bin` will not trigger the configuration. This is because the subfolder `/bin` was not specified.
 
 **Example**
-<br/>
 
 ```yaml
 steps:
@@ -95,24 +127,22 @@ steps:
 - When changes are detected in the path `test/.buildkite/` it triggers the pipeline `test-pipeline`
 - If the changes are made to either `app/` or `app/bin/service/` it triggers the pipeline `data-generator`
 
-<br/>
-
 #### `diff` (optional)
 
 This will run the script provided to determine the folder changes.
 Depending on your use case, you may want to determine the point where the branch occurs
 https://stackoverflow.com/questions/1527234/finding-a-branch-point-with-git and perform a diff against the branch point.
 
-##### Sample output:
+Default: `git diff --name-only HEAD~1`
+
+#### Sample output:
 
 ```
 README.md
 lib/trigger.bash
 ```
 
-Default: `git diff --name-only HEAD~1`
-
-##### Examples:
+#### Example scripts
 
 `diff: ./diff-against-last-successful-build.sh`
 
@@ -159,7 +189,7 @@ This controls the pipeline interpolation on upload, and defaults to `true`.
 If set to `false` it adds `--no-interpolation` to the `buildkite pipeline upload`,
 to avoid trying to interpolate the commit message, which can cause failures.
 
-#### `default` (optional)
+### `default` (optional)
 
 A default `config` to run if no paths are matched, the `config` key is not required, so a `default` can be written with a `config` attribute or simple just a `command` or `trigger`.
 
@@ -178,12 +208,12 @@ steps:
             - path: "foo-service/"
               config:
                 trigger: "deploy-foo-service"
-            - default: 
+            - default:
                 config: ## <-- Optional
                   command: echo "Hello, world!"
 ```
 
-#### `env` (optional)
+### `env` (optional)
 
 The object values provided in this configuration will be appended to `env` property of all steps or commands.
 
@@ -205,7 +235,7 @@ steps:
                     - AWS_REGION
 ```
 
-#### `log_level` (optional)
+### `log_level` (optional)
 
 Add `log_level` property to set the log level. Supported log levels are `debug` and `info`. Defaults to `info`.
 
@@ -222,7 +252,7 @@ steps:
                 trigger: "deploy-foo-service"
 ```
 
-#### `hooks` (optional)
+### `hooks` (optional)
 
 Currently supports a list of `commands` you wish to execute after the `watched` pipelines have been triggered
 
@@ -232,13 +262,13 @@ hooks:
   - command: echo success
 ```
 
-#### `wait` (optional)
+### `wait` (optional)
 
 Default: `true`
 
 By setting `wait` to `true`, the build will wait until the triggered pipeline builds are successful before proceeding
 
-**Example**
+## Example
 
 ```yaml
 steps:
@@ -285,7 +315,7 @@ steps:
 
 ## Thanks :heart:
 
-Thanks to [@chronotc](https://github.com/chronotc) and [Monebag](https://github.com/monebag/) for authoring the original Buildkite Monorepo Plugin.
+Thanks to [@chronotc](https://github.com/chronotc) and [@adikari](https://github.com/adikari/) for authoring the original Buildkite Monorepo Plugin.
 
 ## License
 
@@ -294,4 +324,4 @@ MIT (see [LICENSE](LICENSE))
 
 ## How to Contribute
 
-Please read [contributing guide](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/blob/master/CONTRIBUTING.md). 
+Please read [contributing guide](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/blob/master/CONTRIBUTING.md).

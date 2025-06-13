@@ -35,12 +35,14 @@ type HookConfig struct {
 
 // WatchConfig Plugin watch configuration
 type WatchConfig struct {
-	RawPath     interface{} `json:"path"`
-	Paths       []string
-	Step        Step        `json:"config"`
-	Default     interface{} `json:"default"`
-	RawSkipPath interface{} `json:"skip_path"`
-	SkipPaths   []string
+	RawPath       interface{} `json:"path"`
+	Paths         []string
+	Step          Step        `json:"config"`
+	Default       interface{} `json:"default"`
+	RawSkipPath   interface{} `json:"skip_path"`
+	RawExceptPath interface{} `json:"except_path"`
+	SkipPaths     []string
+	ExceptPaths   []string
 }
 
 type Group struct {
@@ -77,17 +79,20 @@ type Step struct {
 	Group     string                   `yaml:"group,omitempty"`
 	Trigger   string                   `yaml:"trigger,omitempty"`
 	Label     string                   `yaml:"label,omitempty"`
+	Branches  string                   `yaml:"branches,omitempty"`
 	Build     Build                    `yaml:"build,omitempty"`
 	Command   interface{}              `yaml:"command,omitempty"`
 	Commands  interface{}              `yaml:"commands,omitempty"`
 	Agents    Agent                    `yaml:"agents,omitempty"`
 	Artifacts []string                 `yaml:"artifacts,omitempty"`
 	RawEnv    interface{}              `json:"env" yaml:",omitempty"`
+	Plugins   []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
 	Env       map[string]string        `yaml:"env,omitempty"`
 	Async     bool                     `yaml:"async,omitempty"`
 	SoftFail  interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
 	RawNotify []map[string]interface{} `json:"notify" yaml:",omitempty"`
 	Notify    []StepNotify             `yaml:"notify,omitempty"`
+	Steps     []Step                   `yaml:"steps,omitempty"`
 }
 
 // Agent is Buildkite agent definition
@@ -154,8 +159,8 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 			}
 			plugin.Watch[i].Default = true
 		} else if p.RawPath != nil {
-			// Path and SkipPath can be string or an array of strings,
-			// handle both cases and create an array of paths on both.
+			// Path, SkipPath and ExceptPath can be string or an array of strings,
+			// handle both cases and create an array of paths on all.
 			switch p.RawPath.(type) {
 			case string:
 				plugin.Watch[i].Paths = []string{plugin.Watch[i].RawPath.(string)}
@@ -172,6 +177,15 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 		case []interface{}:
 			for _, v := range plugin.Watch[i].RawSkipPath.([]interface{}) {
 				plugin.Watch[i].SkipPaths = append(plugin.Watch[i].SkipPaths, v.(string))
+			}
+		}
+
+		switch p.RawExceptPath.(type) {
+		case string:
+			plugin.Watch[i].ExceptPaths = []string{plugin.Watch[i].RawExceptPath.(string)}
+		case []interface{}:
+			for _, v := range plugin.Watch[i].RawExceptPath.([]interface{}) {
+				plugin.Watch[i].ExceptPaths = append(plugin.Watch[i].ExceptPaths, v.(string))
 			}
 		}
 

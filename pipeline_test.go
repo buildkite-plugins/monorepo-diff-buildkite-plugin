@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/buildkite/bintest"
+	"github.com/buildkite/bintest/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -381,6 +381,27 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			},
 			Expected: []Step{},
 		},
+		"step is not included if except path is set": {
+			ChangedFiles: []string{
+				"main/test/test.txt",
+				"main/test/test2.txt",
+				"main/other/other.txt",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:       []string{"**/*"},
+					ExceptPaths: []string{"main/other/**/*"},
+					Step:        Step{Trigger: "service-1"},
+				},
+				{
+					Paths: []string{"main/other/**/*"},
+					Step:  Step{Trigger: "service-2"},
+				},
+			},
+			Expected: []Step{
+				{Trigger: "service-2"},
+			},
+		},
 	}
 
 	for name, tc := range testCases {
@@ -447,36 +468,36 @@ func TestGeneratePipeline(t *testing.T) {
 	require.NoError(t, err)
 
 	want := `notify:
-- email: foo@gmail.com
-- email: bar@gmail.com
-- basecamp_campfire: https://basecamp
-- webhook: https://webhook
-- slack: '@adikari'
-- github_commit_status:
-    context: github-context
+    - email: foo@gmail.com
+    - email: bar@gmail.com
+    - basecamp_campfire: https://basecamp
+    - webhook: https://webhook
+    - slack: '@adikari'
+    - github_commit_status:
+        context: github-context
 steps:
-- trigger: foo-service-pipeline
-  build:
-    message: build message
-  soft_fail: true
-  notify:
-  - slack: '@adikari'
-- trigger: notification-test
-  command: command-to-run
-  notify:
-  - basecamp_campfire: https://basecamp-url
-  - github_commit_status:
-      context: my-custom-status
-  - slack: '@someuser'
-    if: build.state === "passed"
-- group: my group
-  steps:
-  - trigger: foo-service-pipeline
-    build:
-      message: build message
-- wait: null
-- command: echo "hello world"
-- command: cat ./file.txt
+    - trigger: foo-service-pipeline
+      build:
+        message: build message
+      soft_fail: true
+      notify:
+        - slack: '@adikari'
+    - trigger: notification-test
+      command: command-to-run
+      notify:
+        - basecamp_campfire: https://basecamp-url
+        - github_commit_status:
+            context: my-custom-status
+        - slack: '@someuser'
+          if: build.state === "passed"
+    - group: my group
+      steps:
+        - trigger: foo-service-pipeline
+          build:
+            message: build message
+    - wait: null
+    - command: echo "hello world"
+    - command: cat ./file.txt
 `
 
 	assert.Equal(t, want, string(got))
@@ -486,9 +507,9 @@ func TestGeneratePipelineWithNoStepsAndHooks(t *testing.T) {
 	steps := []Step{}
 
 	want := `steps:
-- wait: null
-- command: echo "hello world"
-- command: cat ./file.txt
+    - wait: null
+    - command: echo "hello world"
+    - command: cat ./file.txt
 `
 
 	plugin := Plugin{
