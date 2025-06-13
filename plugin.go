@@ -23,7 +23,7 @@ type Plugin struct {
 	Watch         []WatchConfig
 	RawEnv        interface{} `json:"env"`
 	Env           map[string]string
-	Metadata      map[string]string
+	Metadata      map[string]string        `json:"meta_data"`
 	RawNotify     []map[string]interface{} `json:"notify" yaml:",omitempty"`
 	Notify        []PluginNotify           `yaml:"notify,omitempty"`
 }
@@ -100,7 +100,7 @@ type Build struct {
 	Commit   string            `yaml:"commit,omitempty"`
 	RawEnv   interface{}       `json:"env" yaml:",omitempty"`
 	Env      map[string]string `yaml:"env,omitempty"`
-	Metadata map[string]string `yaml:"meta_data,omitempty"`
+	Metadata map[string]string `json:"meta_data" yaml:"meta_data,omitempty"`
 	// Notify  []Notify          `yaml:"notify,omitempty"`
 }
 
@@ -126,6 +126,13 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 
 	plugin.Env = parseResult
 	plugin.RawEnv = nil
+
+	metaDataParseResult, err := parseMetadata(plugin.Metadata)
+	if err != nil {
+		return errors.New("failed to parse metadata configuration")
+	}
+
+	plugin.Metadata = metaDataParseResult
 
 	setPluginNotify(&plugin.Notify, &plugin.RawNotify)
 
@@ -356,7 +363,7 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 
 // appends build metadata
 func appendMetadata(watch *WatchConfig, metadata map[string]string) {
-	if metadata == nil || len(metadata) == 0 {
+	if len(metadata) == 0 {
 		return
 	}
 	if watch.Step.Build.Metadata == nil {

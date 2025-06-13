@@ -61,12 +61,14 @@ func uploadPipeline(plugin Plugin, generatePipeline PipelineGenerator) (string, 
 	}
 
 	pipeline, hasSteps, err := generatePipeline(steps, plugin)
-	defer os.Remove(pipeline.Name())
-
 	if err != nil {
-		log.Error(err)
 		return "", []string{}, err
 	}
+	defer func() {
+		if removeErr := os.Remove(pipeline.Name()); removeErr != nil {
+			log.Errorf("Failed to remove temporary pipeline file: %v", removeErr)
+		}
+	}()
 
 	if !hasSteps {
 		// Handle the case where no steps were provided
@@ -91,7 +93,7 @@ func diff(command string) ([]string, error) {
 
 	output, err := executeCommand(
 		env("SHELL", "bash"),
-		[]string{"-c", strings.Replace(command, "\n", " ", -1)},
+		[]string{"-c", strings.ReplaceAll(command, "\n", " ")},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("diff command failed: %v", err)

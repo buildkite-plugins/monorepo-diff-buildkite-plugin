@@ -304,7 +304,6 @@ func TestPluginShouldOnlyFullyUnmarshallItselfAndNotOtherPlugins(t *testing.T) {
 	`
 	got, _ := initializePlugin(param)
 	assert.Equal(t, defaultPlugin(), got)
-
 }
 
 func TestPluginShouldErrorIfPluginConfigIsInvalid(t *testing.T) {

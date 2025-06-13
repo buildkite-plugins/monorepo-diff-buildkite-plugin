@@ -12,12 +12,13 @@ func TestMain(m *testing.M) {
 	log.SetLevel(log.DebugLevel)
 
 	// set some env variables for using in tests
-	os.Setenv("BUILDKITE_COMMIT", "123")
-	os.Setenv("BUILDKITE_MESSAGE", "fix: temp file not correctly deleted")
-	os.Setenv("BUILDKITE_BRANCH", "go-rewrite")
-	os.Setenv("env3", "env-3")
-	os.Setenv("env4", "env-4")
-	os.Setenv("TEST_MODE", "true")
+	// given this is a test we can use `_` for the return; our tests will check values
+	_ = os.Setenv("BUILDKITE_COMMIT", "123")
+	_ = os.Setenv("BUILDKITE_MESSAGE", "fix: temp file not correctly deleted")
+	_ = os.Setenv("BUILDKITE_BRANCH", "go-rewrite")
+	_ = os.Setenv("env3", "env-3")
+	_ = os.Setenv("env4", "env-4")
+	_ = os.Setenv("TEST_MODE", "true")
 
 	run := m.Run()
 
