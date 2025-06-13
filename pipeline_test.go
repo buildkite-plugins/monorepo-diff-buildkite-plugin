@@ -12,7 +12,9 @@ import (
 
 func mockGeneratePipeline(steps []Step, plugin Plugin) (*os.File, bool, error) {
 	mockFile, _ := os.Create("pipeline.txt")
-	defer mockFile.Close()
+	defer func() {
+		_ = mockFile.Close()
+	}()
 
 	return mockFile, true, nil
 }
@@ -39,7 +41,9 @@ func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt"}, args)
 	assert.NoError(t, err)
 
-	agent.CheckAndClose(t)
+	if err := agent.CheckAndClose(t); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T) {
@@ -64,7 +68,9 @@ func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T)
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt", "--no-interpolation"}, args)
 	assert.NoError(t, err)
 
-	agent.CheckAndClose(t)
+	if err := agent.CheckAndClose(t); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestUploadPipelineCancelsIfThereIsNoDiffOutput(t *testing.T) {
@@ -298,7 +304,8 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 					Paths:     []string{"watch-path"},
 					SkipPaths: []string{"watch-path/text.txt"},
 					Step:      Step{Trigger: "service-2"},
-				}},
+				},
+			},
 			Expected: []Step{
 				{Trigger: "service-1"},
 			},
@@ -316,7 +323,8 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 					Paths:     []string{"*.txt"},
 					SkipPaths: []string{"*.secret.txt"},
 					Step:      Step{Trigger: "service-2"},
-				}},
+				},
+			},
 			Expected: []Step{
 				{Trigger: "service-1"},
 			},
@@ -334,7 +342,8 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 					Paths:     []string{"**/*.txt"},
 					SkipPaths: []string{"docs/*.txt"},
 					Step:      Step{Trigger: "service-2"},
-				}},
+				},
+			},
 			Expected: []Step{
 				{Trigger: "service-1"},
 			},
@@ -353,7 +362,8 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 					Paths:     []string{"**/*.txt"},
 					SkipPaths: []string{"docs/*.secret.txt"},
 					Step:      Step{Trigger: "service-2"},
-				}},
+				},
+			},
 			Expected: []Step{
 				{Trigger: "service-1"},
 				{Trigger: "service-2"},
@@ -367,7 +377,8 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 				{
 					SkipPaths: []string{"docs/*.secret.txt"},
 					Step:      Step{Trigger: "service-1"},
-				}},
+				},
+			},
 			Expected: []Step{},
 		},
 		"step is not included if except path is set": {
@@ -447,7 +458,11 @@ func TestGeneratePipeline(t *testing.T) {
 	pipeline, _, err := generatePipeline(steps, plugin)
 
 	require.NoError(t, err)
-	defer os.Remove(pipeline.Name())
+	defer func() {
+		if err := os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
