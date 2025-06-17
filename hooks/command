@@ -96,18 +96,25 @@ download_binary_and_run() {
   fi
 
   local test_mode="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false}"
+  local _command="./${_executable}"
 
   if [[ "$test_mode" == "false" ]]; then
-    if ! downloader "$_url" "$_executable"; then
-      say "failed to download $_url"
-      exit 1
+    # If the command is already available, use it where in the PATH it is.
+    # Otherwise, download the binary and make it executable.
+    if check_cmd monorepo-diff-buildkite-plugin; then
+      _command="$(command -v monorepo-diff-buildkite-plugin)"
+    else
+      if ! downloader "$_url" "$_executable"; then
+        say "failed to download $_url"
+        exit 1
+      fi
+
+      # todo: move it to a more secure place
+      chmod +x ${_executable}
     fi
   fi
-
-  # todo: move it to a more secure place
-  chmod +x ${_executable}
   
-  ./${_executable}
+  ./${_command}
 }
 
 download_binary_and_run "$@" || exit 1
