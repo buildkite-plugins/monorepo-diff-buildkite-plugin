@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"path"
 	"strings"
@@ -22,6 +23,7 @@ type Plugin struct {
 	Watch         []WatchConfig
 	RawEnv        interface{} `json:"env"`
 	Env           map[string]string
+	Metadata      map[string]string        `json:"meta_data"`
 	RawNotify     []map[string]interface{} `json:"notify" yaml:",omitempty"`
 	Notify        []PluginNotify           `yaml:"notify,omitempty"`
 }
@@ -98,11 +100,12 @@ type Agent map[string]string
 
 // Build is buildkite build definition
 type Build struct {
-	Message string            `yaml:"message,omitempty"`
-	Branch  string            `yaml:"branch,omitempty"`
-	Commit  string            `yaml:"commit,omitempty"`
-	RawEnv  interface{}       `json:"env" yaml:",omitempty"`
-	Env     map[string]string `yaml:"env,omitempty"`
+	Message  string            `yaml:"message,omitempty"`
+	Branch   string            `yaml:"branch,omitempty"`
+	Commit   string            `yaml:"commit,omitempty"`
+	RawEnv   interface{}       `json:"env" yaml:",omitempty"`
+	Env      map[string]string `yaml:"env,omitempty"`
+	Metadata map[string]string `json:"meta_data" yaml:"meta_data,omitempty"`
 	// Notify  []Notify          `yaml:"notify,omitempty"`
 }
 
@@ -128,6 +131,13 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 
 	plugin.Env = parseResult
 	plugin.RawEnv = nil
+
+	metaDataParseResult, err := parseMetadata(plugin.Metadata)
+	if err != nil {
+		return errors.New("failed to parse metadata configuration")
+	}
+
+	plugin.Metadata = metaDataParseResult
 
 	setPluginNotify(&plugin.Notify, &plugin.RawNotify)
 
@@ -188,6 +198,14 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 		}
 
 		appendEnv(&plugin.Watch[i], plugin.Env)
+
+		// Attempt to parse the metadata after the env's
+		parsedMetadata, err := parseMetadata(plugin.Metadata)
+		if err != nil {
+			return errors.New("failed to parse metadata configuration")
+		}
+
+		appendMetadata(&plugin.Watch[i], parsedMetadata)
 
 		p.RawPath = nil
 		p.RawSkipPath = nil
@@ -357,6 +375,22 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 	watch.RawSkipPath = nil
 }
 
+// appends build metadata
+func appendMetadata(watch *WatchConfig, metadata map[string]string) {
+	if len(metadata) == 0 {
+		return
+	}
+	// Only apply metadata to trigger steps, not command steps
+	if watch.Step.Trigger != "" {
+		if watch.Step.Build.Metadata == nil {
+			watch.Step.Build.Metadata = make(map[string]string)
+		}
+		for k, v := range metadata {
+			watch.Step.Build.Metadata[k] = v
+		}
+	}
+}
+
 // parse env in format from env=env-value to map[env] = env-value
 func parseEnv(raw interface{}) (map[string]string, error) {
 	if raw == nil {
@@ -383,6 +417,44 @@ func parseEnv(raw interface{}) (map[string]string, error) {
 	}
 
 	return result, nil
+}
+
+// parse metadata in format from key:value to map[key] = value
+func parseMetadata(raw interface{}) (map[string]string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+
+	switch v := raw.(type) {
+	case map[string]string:
+		return v, nil
+	case map[string]interface{}:
+		result := make(map[string]string)
+		for k, val := range v {
+			result[k] = fmt.Sprintf("%v", val)
+		}
+		return result, nil
+	case []interface{}:
+		result := make(map[string]string)
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				continue
+			}
+			split := strings.SplitN(str, ":", 2)
+			key := strings.TrimSpace(split[0])
+			value := ""
+			if len(split) > 1 {
+				value = strings.TrimSpace(split[1])
+			}
+			if key != "" {
+				result[key] = value
+			}
+		}
+		return result, nil
+	default:
+		return nil, errors.New("failed to parse metadata configuration: unknown type")
+	}
 }
 
 func getPluginName(s string) string {

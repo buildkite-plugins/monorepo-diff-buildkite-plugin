@@ -139,6 +139,11 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 							"message": "build message",
 							"branch": "current branch",
 							"commit": "commit-hash",
+							"meta_data": {
+								"metadata1": "metadata-1",
+								"metadata2": "metadata-2",
+								"metadata3": "metadata-3"
+							},
 							"env": [
 								"foo =bar",
 								"bar= foo"
@@ -211,6 +216,7 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						Message: "some message",
 						Branch:  "go-rewrite",
 						Commit:  "123",
+
 						Env: map[string]string{
 							"env1": "env-1",
 							"env2": "env-2",
@@ -247,6 +253,11 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						Message: "build message",
 						Branch:  "current branch",
 						Commit:  "commit-hash",
+						Metadata: map[string]string{
+							"metadata1": "metadata-1",
+							"metadata2": "metadata-2",
+							"metadata3": "metadata-3",
+						},
 						Env: map[string]string{
 							"foo":  "bar",
 							"bar":  "foo",
@@ -313,7 +324,6 @@ func TestPluginShouldOnlyFullyUnmarshallItselfAndNotOtherPlugins(t *testing.T) {
 	`
 	got, _ := initializePlugin(param)
 	assert.Equal(t, defaultPlugin(), got)
-
 }
 
 func TestPluginShouldErrorIfPluginConfigIsInvalid(t *testing.T) {
@@ -690,4 +700,127 @@ func TestPluginShouldPreserveStepBranches(t *testing.T) {
 	if diff := cmp.Diff(expected, got); diff != "" {
 		t.Fatalf("plugin diff (-want +got):\n%s", diff)
 	}
+}
+
+func TestPluginMetadataOnlyAppliedToTriggerSteps(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"meta_data": {
+				"plugin_level_key": "plugin_level_value"
+			},
+			"watch": [
+				{
+					"path": "app/",
+					"config": {
+						"trigger": "app-deploy",
+						"build": {
+							"meta_data": {
+								"step_level_key": "step_level_value"
+							}
+						}
+					}
+				},
+				{
+					"path": "test/",
+					"config": {
+						"command": "echo test command"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Metadata: map[string]string{
+			"plugin_level_key": "plugin_level_value",
+		},
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"app/"},
+				Step: Step{
+					Trigger: "app-deploy",
+					Build: Build{
+						Message: "fix: temp file not correctly deleted",
+						Branch:  "go-rewrite",
+						Commit:  "123",
+						Metadata: map[string]string{
+							"step_level_key":   "step_level_value",
+							"plugin_level_key": "plugin_level_value",
+						},
+					},
+				},
+			},
+			{
+				Paths: []string{"test/"},
+				Step: Step{
+					Command: "echo test command",
+					// Build defaults are not set for command steps
+					Build: Build{
+						// No metadata should be set here
+					},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+
+	// Explicitly verify that command step doesn't have metadata
+	commandStep := got.Watch[1].Step
+	assert.Nil(t, commandStep.Build.Metadata, "Command step should not have metadata set")
+
+	// Explicitly verify that trigger step has metadata
+	triggerStep := got.Watch[0].Step
+	assert.NotNil(t, triggerStep.Build.Metadata, "Trigger step should have metadata set")
+	assert.Equal(t, "step_level_value", triggerStep.Build.Metadata["step_level_key"])
+	assert.Equal(t, "plugin_level_value", triggerStep.Build.Metadata["plugin_level_key"])
+}
+
+func TestPluginLevelMetadataNotAppliedToCommandSteps(t *testing.T) {
+	// This test demonstrates the fix for the original issue where plugin-level
+	// metadata was being applied to all steps, including command steps where it doesn't belong
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"meta_data": {
+				"foo": "bar"
+			},
+			"watch": [
+				{
+					"path": "app/",
+					"config": {
+						"trigger": "app-deploy"
+					}
+				},
+				{
+					"path": "test/bin/",
+					"config": {
+						"command": "echo Make Changes to Bin"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	// Verify that trigger step gets plugin-level metadata
+	triggerStep := got.Watch[0].Step
+	assert.Equal(t, "app-deploy", triggerStep.Trigger)
+	assert.NotNil(t, triggerStep.Build.Metadata)
+	assert.Equal(t, "bar", triggerStep.Build.Metadata["foo"])
+
+	// Verify that command step does NOT get plugin-level metadata
+	commandStep := got.Watch[1].Step
+	assert.Equal(t, "echo Make Changes to Bin", commandStep.Command)
+	assert.Nil(t, commandStep.Build.Metadata, "Command step should not have metadata applied")
 }

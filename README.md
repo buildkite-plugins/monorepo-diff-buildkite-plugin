@@ -46,6 +46,7 @@ steps:
   - label: "Triggering pipelines"
     plugins:
       - monorepo-diff#v1.4.0:
+          diff: "git diff --name-only HEAD~1"
           watch:
             - path: "**/*"
               skip_path: "folder/file"
@@ -101,7 +102,32 @@ steps:
 
 ⚠️ Warning : The user has to explictly state the paths they want to monitor or use wildcards. For instance if a user, is only watching path `app/` changes made to `app/bin` will not trigger the configuration. This is because the subfolder `/bin` was not specified.
 
-### `diff` (optional)
+**Example**
+
+```yaml
+steps:
+  - label: "Triggering pipelines with plugin"
+    plugins:
+      - monorepo-diff#v1.4.0:
+          watch:
+            - path: test/.buildkite/
+              config: # Required [trigger step configuration]
+                trigger: test-pipeline # Required [trigger pipeline slug]
+            - path:
+                - app/
+                - app/bin/service/
+              config:
+                trigger: "data-generator"
+                label: ":package: Generate data"
+                build:
+                  meta_data:
+                    release-version: "1.1"
+```
+
+- When changes are detected in the path `test/.buildkite/` it triggers the pipeline `test-pipeline`
+- If the changes are made to either `app/` or `app/bin/service/` it triggers the pipeline `data-generator`
+
+#### `diff` (optional)
 
 This will run the script provided to determine the folder changes.
 Depending on your use case, you may want to determine the point where the branch occurs
@@ -140,7 +166,24 @@ LATEST_BUILT_TAG=$(git describe --tags --match foo-service-* --abbrev=0)
 git diff --name-only "$LATEST_TAG"
 ```
 
-### `interpolation` (optional)
+**Example**
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.4.0:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "bar-service/"
+              config:
+                command: "echo deploy-bar"
+            - path: "foo-service/"
+              config:
+                trigger: "deploy-foo-service"
+```
+
+#### `interpolation` (optional)
 
 This controls the pipeline interpolation on upload, and defaults to `true`.
 If set to `false` it adds `--no-interpolation` to the `buildkite pipeline upload`,
@@ -157,6 +200,7 @@ steps:
   - label: "Triggering pipelines"
     plugins:
       - monorepo-diff#v1.4.0:
+          diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
               config:
@@ -178,6 +222,7 @@ steps:
   - label: "Triggering pipelines"
     plugins:
       - monorepo-diff#v1.4.0:
+          diff: "git diff --name-only HEAD~1"
           watch:
             - path: "foo-service/"
               config:
@@ -199,6 +244,7 @@ steps:
   - label: "Triggering pipelines"
     plugins:
       - monorepo-diff#v1.4.0:
+          diff: "git diff --name-only HEAD~1"
           log_level: "debug" # defaults to "info"
           watch:
             - path: "foo-service/"

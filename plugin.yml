@@ -69,6 +69,8 @@ configuration:
             build:
               type: object
               properties:
+                meta_data:
+                  type: array
                 message:
                   type: string
                 commit:
@@ -97,5 +99,4 @@ configuration:
           type: string
   required:
     - watch
-
 # yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite-plugins/buildkite-plugin-linter/master/lib/plugin-yaml-schema.yml
