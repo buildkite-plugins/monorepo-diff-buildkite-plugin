@@ -380,11 +380,14 @@ func appendMetadata(watch *WatchConfig, metadata map[string]string) {
 	if len(metadata) == 0 {
 		return
 	}
-	if watch.Step.Build.Metadata == nil {
-		watch.Step.Build.Metadata = make(map[string]string)
-	}
-	for k, v := range metadata {
-		watch.Step.Build.Metadata[k] = v
+	// Only apply metadata to trigger steps, not command steps
+	if watch.Step.Trigger != "" {
+		if watch.Step.Build.Metadata == nil {
+			watch.Step.Build.Metadata = make(map[string]string)
+		}
+		for k, v := range metadata {
+			watch.Step.Build.Metadata[k] = v
+		}
 	}
 }
 
