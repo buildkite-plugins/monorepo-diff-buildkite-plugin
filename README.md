@@ -313,6 +313,14 @@ steps:
           wait: true
 ```
 
+## Compatibility
+
+| Elastic Stack | Agent Stack K8s | Hosted (Mac) | Hosted (Linux) | Notes |
+| :-----------: | :-------------: | :----: | :----: |:---- |
+| ✅ | ✅ | ✅ | ✅ | N/A |
+
+- ✅ Fully supported (all combinations of attributes have been tested to pass)
+
 ## Thanks :heart:
 
 Thanks to [@chronotc](https://github.com/chronotc) and [@adikari](https://github.com/adikari/) for authoring the original Buildkite Monorepo Plugin.
