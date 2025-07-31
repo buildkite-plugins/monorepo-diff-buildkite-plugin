@@ -32,6 +32,15 @@ steps:
           always-pull: true
           workdir: /plugin
 
+  - label: "Security Scan"
+    key: security_scan
+    plugins:
+      - secrets#v1.0.0:
+          variables:
+            GITHUB_TOKEN: GITHUB_TOKEN
+      - ossf-scorecard#v1.0.0:
+          github_token: $$GITHUB_TOKEN
+
   - wait: ~
 
   - label: ":bomb: Triggers"
