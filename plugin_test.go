@@ -824,3 +824,42 @@ func TestPluginLevelMetadataNotAppliedToCommandSteps(t *testing.T) {
 	assert.Equal(t, "echo Make Changes to Bin", commandStep.Command)
 	assert.Nil(t, commandStep.Build.Metadata, "Command step should not have metadata applied")
 }
+
+func TestPluginShouldPreserveStepCondition(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo deploy",
+						"if": "build.branch == 'main' && build.pull_request.id == null"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Step: Step{
+					Command:   "echo deploy",
+					Condition: "build.branch == 'main' && build.pull_request.id == null",
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
