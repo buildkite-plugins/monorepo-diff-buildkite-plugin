@@ -547,3 +547,36 @@ func TestGeneratePipelineWithNoStepsAndNoHooks(t *testing.T) {
 
 	assert.Equal(t, want, string(got))
 }
+
+func TestGeneratePipelineWithCondition(t *testing.T) {
+	steps := []Step{
+		{
+			Command:   "echo deploy to production",
+			Label:     "Deploy",
+			Condition: "build.branch == 'main' && build.pull_request.id == null",
+		},
+		{
+			Trigger:   "test-pipeline",
+			Condition: "build.message =~ /\\[deploy\\]/",
+		},
+	}
+
+	want := `steps:
+    - label: Deploy
+      if: build.branch == 'main' && build.pull_request.id == null
+      command: echo deploy to production
+    - trigger: test-pipeline
+      if: build.message =~ /\[deploy\]/
+`
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer os.Remove(pipeline.Name())
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	assert.Equal(t, want, string(got))
+}
