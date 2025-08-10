@@ -45,7 +45,7 @@ For example, in the following configuration:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.4.0:
+      - monorepo-diff#v1.5.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "**/*"
@@ -70,6 +70,7 @@ This is a sub-section that provides configuration for running commands or trigge
 - [Trigger](https://buildkite.com/docs/pipelines/configure/step-types/trigger-step)
 - [Command](https://buildkite.com/docs/pipelines/configure/step-types/command-step)
 - [Group](https://buildkite.com/docs/pipelines/configure/step-types/group-step)
+- [Conditionals](https://buildkite.com/docs/pipelines/conditionals)
 
 :warning: This plugin may accept configurations that are not valid pipeline steps, this is a known issue to keep its code simple and flexible.
 
@@ -77,7 +78,7 @@ This is a sub-section that provides configuration for running commands or trigge
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.4.0:
+      - monorepo-diff#v1.5.0:
           watch:
             - path: app/
               config:
@@ -108,7 +109,7 @@ steps:
 steps:
   - label: "Triggering pipelines with plugin"
     plugins:
-      - monorepo-diff#v1.4.0:
+      - monorepo-diff#v1.5.0:
           watch:
             - path: test/.buildkite/
               config: # Required [trigger step configuration]
@@ -126,6 +127,34 @@ steps:
 
 - When changes are detected in the path `test/.buildkite/` it triggers the pipeline `test-pipeline`
 - If the changes are made to either `app/` or `app/bin/service/` it triggers the pipeline `data-generator`
+
+**Conditional Step Execution (`if`):**
+
+The plugin supports conditional execution of pipeline steps using the `if` key, matching Buildkite’s pipeline conditional syntax. The `if` key allows you to control when a step runs, based on branch names, environment variables, build metadata, or custom expressions.
+
+**Example**
+
+```yaml
+steps:
+  - label: "Triggering pipelines with plugin"
+    plugins:
+      - monorepo-diff#v1.5.0:
+          diff: git diff --name-only HEAD~1
+          watch:
+            - path: services/api
+              config:
+                trigger: deploy-api
+                if: build.branch == 'main' || build.branch =~ /^release\//
+            - path: services/web
+              config:
+                command: echo "Deploy Web"
+                if: build.tag != null
+```
+
+In the example above, 
+- The `deploy-api` trigger will only run on the main branch or branches matching `release/*`.
+- The `web deployment` command will run only if the build has a tag.
+
 
 #### `diff` (optional)
 
@@ -172,7 +201,7 @@ git diff --name-only "$LATEST_TAG"
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.4.0:
+      - monorepo-diff#v1.5.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
@@ -199,7 +228,7 @@ A default `config` to run if no paths are matched, the `config` key is not requi
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.4.0:
+      - monorepo-diff#v1.5.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
@@ -221,7 +250,7 @@ The object values provided in this configuration will be appended to `env` prope
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.4.0:
+      - monorepo-diff#v1.5.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "foo-service/"
@@ -243,7 +272,7 @@ Add `log_level` property to set the log level. Supported log levels are `debug` 
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.4.0:
+      - monorepo-diff#v1.5.0:
           diff: "git diff --name-only HEAD~1"
           log_level: "debug" # defaults to "info"
           watch:
@@ -274,7 +303,7 @@ By setting `wait` to `true`, the build will wait until the triggered pipeline bu
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.4.0:
+      - monorepo-diff#v1.5.0:
           diff: "git diff --name-only $(head -n 1 last_successful_build)"
           interpolation: false
           env:
