@@ -80,6 +80,7 @@ type Step struct {
 	Trigger   string                   `yaml:"trigger,omitempty"`
 	Label     string                   `yaml:"label,omitempty"`
 	Branches  string                   `yaml:"branches,omitempty"`
+	Condition string                   `json:"if,omitempty" yaml:"if,omitempty"`
 	Build     Build                    `yaml:"build,omitempty"`
 	Command   interface{}              `yaml:"command,omitempty"`
 	Commands  interface{}              `yaml:"commands,omitempty"`
