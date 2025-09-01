@@ -28,8 +28,8 @@ func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
 	}
 
 	oldPath := os.Getenv("PATH")
-	t.Cleanup(func() { os.Setenv("PATH", oldPath) })
-	os.Setenv("PATH", filepath.Dir(agent.Path)+":"+oldPath)
+	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
+	_ = os.Setenv("PATH", filepath.Dir(agent.Path)+":"+oldPath)
 
 	agent.
 		Expect("pipeline", "upload", "pipeline.txt").
@@ -55,8 +55,8 @@ func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T)
 	}
 
 	oldPath := os.Getenv("PATH")
-	t.Cleanup(func() { os.Setenv("PATH", oldPath) })
-	os.Setenv("PATH", filepath.Dir(agent.Path)+":"+oldPath)
+	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
+	_ = os.Setenv("PATH", filepath.Dir(agent.Path)+":"+oldPath)
 
 	agent.
 		Expect("pipeline", "upload", "pipeline.txt", "--no-interpolation").
@@ -459,7 +459,7 @@ func TestGeneratePipeline(t *testing.T) {
 
 	require.NoError(t, err)
 	defer func() {
-		if err := os.Remove(pipeline.Name()); err != nil {
+		if err = os.Remove(pipeline.Name()); err != nil {
 			t.Logf("Failed to remove temporary pipeline file: %v", err)
 		}
 	}()
@@ -522,7 +522,11 @@ func TestGeneratePipelineWithNoStepsAndHooks(t *testing.T) {
 
 	pipeline, _, err := generatePipeline(steps, plugin)
 	require.NoError(t, err)
-	defer os.Remove(pipeline.Name())
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("failed to remove teme file: %v", err)
+		}
+	}()
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
@@ -540,7 +544,11 @@ func TestGeneratePipelineWithNoStepsAndNoHooks(t *testing.T) {
 
 	pipeline, _, err := generatePipeline(steps, plugin)
 	require.NoError(t, err)
-	defer os.Remove(pipeline.Name())
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
@@ -573,7 +581,11 @@ func TestGeneratePipelineWithCondition(t *testing.T) {
 
 	pipeline, _, err := generatePipeline(steps, plugin)
 	require.NoError(t, err)
-	defer os.Remove(pipeline.Name())
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
