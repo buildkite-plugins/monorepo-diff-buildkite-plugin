@@ -1,5 +1,5 @@
 # Stage 1: Build the Go plugin using Goreleaser
-FROM goreleaser/goreleaser:v2.3.0-amd64 as go
+FROM goreleaser/goreleaser:v2.3.0-amd64 AS go
 
 WORKDIR /plugin
 
@@ -8,7 +8,7 @@ COPY . .
 RUN goreleaser build --clean --skip=validate --config .goreleaser-test.yml
 
 # Stage 2: Lint the plugin using Buildkite plugin-linter
-FROM buildkite/plugin-linter:latest as linter
+FROM buildkite/plugin-linter:latest AS linter
 
 WORKDIR /plugin
 
@@ -19,7 +19,7 @@ COPY --from=go /plugin /plugin
 RUN plugin-linter --id buildkite-plugins/monorepo-diff
 
 # Stage 3: Final image for testing the plugin
-FROM golang:1.20 as test-stage
+FROM golang:1.22.12 AS test-stage
 
 WORKDIR /plugin
 
