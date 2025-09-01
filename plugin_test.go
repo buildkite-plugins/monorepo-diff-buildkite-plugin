@@ -292,8 +292,22 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 				Step: Step{
 					Group: "my group",
 					Steps: []Step{
-						{Command: "echo hello-group from first step"},
-						{Command: "echo hello-group from second step"},
+						{
+							Command: "echo hello-group from first step",
+							Env: map[string]string{
+								"env1": "env-1",
+								"env2": "env-2",
+								"env3": "env-3",
+							},
+						},
+						{
+							Command: "echo hello-group from second step",
+							Env: map[string]string{
+								"env1": "env-1",
+								"env2": "env-2",
+								"env3": "env-3",
+							},
+						},
 					},
 				},
 			},
@@ -862,4 +876,70 @@ func TestPluginShouldPreserveStepCondition(t *testing.T) {
 	if diff := cmp.Diff(expected, got); diff != "" {
 		t.Fatalf("plugin diff (-want +got):\n%s", diff)
 	}
+}
+
+func TestPluginShouldClearRawEnvFromNestedSteps(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"env": [
+				"PLUGIN_ENV=plugin-value"
+			],
+			"watch": [
+				{
+					"path": "yarn.lock",
+					"config": {
+						"group": "test-group",
+						"steps": [
+							{
+								"trigger": "test-pipeline",
+								"label": "PR build",
+								"build": {
+									"commit": "abc123",
+									"branch": "feature-branch",
+									"env": [
+										"BUNDLE_BUILD=pr"
+									]
+								}
+							},
+							{
+								"trigger": "test-pipeline",
+								"label": "Master build",
+								"build": {
+									"branch": "master",
+									"env": [
+										"BUNDLE_BUILD=master"
+									]
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	// Verify the structure is correct
+	assert.Equal(t, 1, len(got.Watch))
+	assert.Equal(t, "test-group", got.Watch[0].Step.Group)
+	assert.Equal(t, 2, len(got.Watch[0].Step.Steps))
+
+	// Verify nested steps have correct env values
+	firstStep := got.Watch[0].Step.Steps[0]
+	assert.Equal(t, "test-pipeline", firstStep.Trigger)
+	assert.Equal(t, "pr", firstStep.Build.Env["BUNDLE_BUILD"])
+	assert.Equal(t, "plugin-value", firstStep.Build.Env["PLUGIN_ENV"])
+
+	secondStep := got.Watch[0].Step.Steps[1]
+	assert.Equal(t, "test-pipeline", secondStep.Trigger)
+	assert.Equal(t, "master", secondStep.Build.Env["BUNDLE_BUILD"])
+	assert.Equal(t, "plugin-value", secondStep.Build.Env["PLUGIN_ENV"])
+
+	// Most importantly: verify RawEnv fields are cleared
+	assert.Nil(t, firstStep.RawEnv, "First nested step RawEnv should be nil")
+	assert.Nil(t, firstStep.Build.RawEnv, "First nested step Build.RawEnv should be nil")
+	assert.Nil(t, secondStep.RawEnv, "Second nested step RawEnv should be nil")
+	assert.Nil(t, secondStep.Build.RawEnv, "Second nested step Build.RawEnv should be nil")
 }
