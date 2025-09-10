@@ -231,7 +231,9 @@ func generatePipeline(steps []Step, plugin Plugin) (*os.File, bool, error) {
 
 	yamlSteps := make([]yaml.Marshaler, len(steps))
 
+	fmt.Printf("DEBUG: Processing %d steps before marshaling:\n", len(steps))
 	for i, step := range steps {
+		fmt.Printf("DEBUG Step %d: Label='%s', Matrix=%v (type: %T), Command=%v\n", i, step.Label, step.Matrix, step.Matrix, step.Command)
 		yamlSteps[i] = step
 	}
 
