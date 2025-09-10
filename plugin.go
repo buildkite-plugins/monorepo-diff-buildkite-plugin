@@ -79,12 +79,12 @@ type Step struct {
 	Group     string                   `yaml:"group,omitempty"`
 	Trigger   string                   `yaml:"trigger,omitempty"`
 	Label     string                   `yaml:"label,omitempty"`
+	Matrix    []interface{}            `yaml:"matrix,omitempty"`
 	Branches  string                   `yaml:"branches,omitempty"`
 	Condition string                   `json:"if,omitempty" yaml:"if,omitempty"`
 	Build     Build                    `yaml:"build,omitempty"`
 	Command   interface{}              `yaml:"command,omitempty"`
 	Commands  interface{}              `yaml:"commands,omitempty"`
-	Matrix    interface{}              `yaml:"matrix"`
 	Agents    Agent                    `yaml:"agents,omitempty"`
 	Artifacts []string                 `yaml:"artifacts,omitempty"`
 	RawEnv    interface{}              `json:"env" yaml:",omitempty"`
