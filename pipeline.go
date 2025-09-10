@@ -162,7 +162,11 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 				}
 
 				if match && !skip {
-					steps = append(steps, w.Step)
+					if len(w.Step.Steps) > 0 {
+						steps = append(steps, w.Step.Steps...)
+					} else {
+						steps = append(steps, w.Step)
+					}
 					break
 				}
 			}
@@ -170,7 +174,11 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 	}
 
 	if len(steps) == 0 && defaultStep != nil {
-		steps = append(steps, *defaultStep)
+		if len(defaultStep.Steps) > 0 {
+			steps = append(steps, defaultStep.Steps...)
+		} else {
+			steps = append(steps, *defaultStep)
+		}
 	}
 
 	return dedupSteps(steps), nil
