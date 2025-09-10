@@ -264,8 +264,9 @@ func generatePipeline(steps []Step, plugin Plugin) (*os.File, bool, error) {
 	// Disable logging in context of go tests.
 	if env("TEST_MODE", "") != "true" {
 		fmt.Printf("Generated Pipeline:\n%s\n", string(data))
+		fmt.Printf("Total steps: %d\n", len(steps))
 		for i, step := range steps {
-			fmt.Printf("Step %d: Label=%s, Matrix=%v, Command=%v\n", i, step.Label, step.Matrix, step.Command)
+			fmt.Printf("Step %d: Label='%s', Matrix=%v (type: %T), Command=%v\n", i, step.Label, step.Matrix, step.Matrix, step.Command)
 		}
 	}
 
