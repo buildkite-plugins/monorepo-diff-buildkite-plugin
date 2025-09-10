@@ -84,7 +84,7 @@ type Step struct {
 	Build     Build                    `yaml:"build,omitempty"`
 	Command   interface{}              `yaml:"command,omitempty"`
 	Commands  interface{}              `yaml:"commands,omitempty"`
-	Matrix    interface{}              `yaml:"matrix,omitempty"`
+	Matrix    interface{}              `yaml:"matrix"`
 	Agents    Agent                    `yaml:"agents,omitempty"`
 	Artifacts []string                 `yaml:"artifacts,omitempty"`
 	RawEnv    interface{}              `json:"env" yaml:",omitempty"`
