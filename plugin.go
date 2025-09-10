@@ -79,7 +79,7 @@ type Step struct {
 	Group     string                   `yaml:"group,omitempty"`
 	Trigger   string                   `yaml:"trigger,omitempty"`
 	Label     string                   `yaml:"label,omitempty"`
-	Matrix    []interface{}            `yaml:"matrix,omitempty"`
+	Matrix    []string                 `yaml:"matrix,omitempty"`
 	Branches  string                   `yaml:"branches,omitempty"`
 	Condition string                   `json:"if,omitempty" yaml:"if,omitempty"`
 	Build     Build                    `yaml:"build,omitempty"`
