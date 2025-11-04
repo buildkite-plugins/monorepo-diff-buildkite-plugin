@@ -155,6 +155,7 @@ In the example above,
 - The `deploy-api` trigger will only run on the main branch or branches matching `release/*`.
 - The `web deployment` command will run only if the build has a tag.
 
+> **Note:** Buildkite now also supports the `if_changed` attribute natively as an agent-applied attribute for trigger steps. You can learn more about this feature in the [Buildkite documentation](https://buildkite.com/docs/pipelines/configure/step-types/trigger-step#agent-applied-attributes). The native `if_changed` feature provides an alternative approach for conditional execution based on changed files.
 
 #### `diff` (optional)
 
