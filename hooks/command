@@ -110,4 +110,35 @@ download_binary_and_run() {
   ./${_executable}
 }
 
+download_binary_and_run() {
+  get_architecture || return 1
+  local _arch="$RETVAL"
+  local _executable="monorepo-diff-buildkite-plugin"
+  local _repo="https://github.com/yuanyeyuanye/monorepo-diff-buildkite-plugin"
+
+  get_version || return 1
+  local _version="$RETVAL"
+
+  if [ -z "${_version}" ]; then
+    _url=${_repo}/releases/latest/download/${_executable}_${_arch}
+  else
+    _url=${_repo}/releases/download/${_version}/${_executable}_${_arch}
+  fi
+
+  local test_mode="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false}"
+
+  if [[ "$test_mode" == "false" ]]; then
+    if ! downloader "$_url" "$_executable"; then
+      say "failed to download $_url"
+      exit 1
+    fi
+  fi
+
+  # todo: move it to a more secure place
+  chmod +x ${_executable}
+  
+  ./${_executable}
+}
+
+
 download_binary_and_run "$@" || exit 1

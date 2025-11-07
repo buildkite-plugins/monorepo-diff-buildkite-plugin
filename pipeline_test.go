@@ -8,6 +8,7 @@ import (
 	"github.com/buildkite/bintest/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func mockGeneratePipeline(steps []Step, plugin Plugin) (*os.File, bool, error) {
@@ -482,6 +483,8 @@ steps:
       soft_fail: true
       notify:
         - slack: '@adikari'
+    - continue_on_failure: true
+      wait: null
     - trigger: notification-test
       command: command-to-run
       notify:
@@ -490,12 +493,15 @@ steps:
             context: my-custom-status
         - slack: '@someuser'
           if: build.state === "passed"
+    - continue_on_failure: true
+      wait: null
     - group: my group
       steps:
         - trigger: foo-service-pipeline
           build:
             message: build message
-    - wait: null
+    - continue_on_failure: true
+      wait: null
     - command: echo "hello world"
     - command: cat ./file.txt
 `
@@ -507,7 +513,8 @@ func TestGeneratePipelineWithNoStepsAndHooks(t *testing.T) {
 	steps := []Step{}
 
 	want := `steps:
-    - wait: null
+    - continue_on_failure: true
+      wait: null
     - command: echo "hello world"
     - command: cat ./file.txt
 `
@@ -573,6 +580,8 @@ func TestGeneratePipelineWithCondition(t *testing.T) {
     - label: Deploy
       if: build.branch == 'main' && build.pull_request.id == null
       command: echo deploy to production
+    - continue_on_failure: true
+      wait: null
     - trigger: test-pipeline
       if: build.message =~ /\[deploy\]/
 `
@@ -591,4 +600,24 @@ func TestGeneratePipelineWithCondition(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, want, string(got))
+}
+
+func TestWaitAllowFailureStepYAML(t *testing.T) {
+	yamlSteps := []interface{}{
+		WaitAllowFailureStep{},
+	}
+
+	pipeline := map[string]interface{}{
+		"steps": yamlSteps,
+	}
+
+	data, err := yaml.Marshal(&pipeline)
+	require.NoError(t, err)
+
+	want := `steps:
+    - continue_on_failure: true
+      wait: null
+`
+
+	assert.Equal(t, want, string(data))
 }

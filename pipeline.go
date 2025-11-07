@@ -23,6 +23,17 @@ func (WaitStep) MarshalYAML() (interface{}, error) {
 	}, nil
 }
 
+// WaitAllowFailureStep represents a Buildkite Wait Step that continues on failure
+// https://buildkite.com/docs/pipelines/wait-step
+type WaitAllowFailureStep struct{}
+
+func (WaitAllowFailureStep) MarshalYAML() (interface{}, error) {
+	return map[string]interface{}{
+		"wait":                 nil,
+		"continue_on_failure": true,
+	}, nil
+}
+
 func (s Step) MarshalYAML() (interface{}, error) {
 	if s.Group == "" {
 		type Alias Step
@@ -221,14 +232,18 @@ func generatePipeline(steps []Step, plugin Plugin) (*os.File, bool, error) {
 		return nil, false, fmt.Errorf("could not create temporary pipeline file: %v", err)
 	}
 
-	yamlSteps := make([]yaml.Marshaler, len(steps))
+	yamlSteps := make([]yaml.Marshaler, 0)
 
 	for i, step := range steps {
-		yamlSteps[i] = step
+		yamlSteps = append(yamlSteps, step)
+		// Add a wait step between each triggered pipeline (but not after the last one)
+		if i < len(steps)-1 {
+			yamlSteps = append(yamlSteps, WaitAllowFailureStep{})
+		}
 	}
 
 	if plugin.Wait {
-		yamlSteps = append(yamlSteps, WaitStep{})
+		yamlSteps = append(yamlSteps, WaitAllowFailureStep{})
 	}
 
 	for _, cmd := range plugin.Hooks {
