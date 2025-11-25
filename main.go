@@ -21,6 +21,7 @@ func setupLogger(logLevel string) {
 var version string = "dev"
 
 func main() {
+	// This exact string is used in the command hook to grep for the version of the plugin
 	log.Infof("--- running monorepo-diff-buildkite-plugin %s", version)
 
 	plugins := env("BUILDKITE_PLUGINS", "")
