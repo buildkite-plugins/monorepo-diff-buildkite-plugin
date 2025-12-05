@@ -592,3 +592,48 @@ func TestGeneratePipelineWithCondition(t *testing.T) {
 
 	assert.Equal(t, want, string(got))
 }
+
+func TestGeneratePipelineWithDependsOn(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo build",
+			Label:   "Build",
+		},
+		{
+			Command:   "echo test",
+			Label:     "Test",
+			DependsOn: "build-step",
+		},
+		{
+			Trigger:   "deploy-pipeline",
+			DependsOn: []interface{}{"build-step", "test-step"},
+		},
+	}
+
+	want := `steps:
+    - label: Build
+      command: echo build
+    - label: Test
+      command: echo test
+      depends_on: build-step
+    - trigger: deploy-pipeline
+      depends_on:
+        - build-step
+        - test-step
+`
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	assert.Equal(t, want, string(got))
+}

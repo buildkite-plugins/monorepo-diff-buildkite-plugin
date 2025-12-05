@@ -93,6 +93,7 @@ type Step struct {
 	SoftFail  interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
 	RawNotify []map[string]interface{} `json:"notify" yaml:",omitempty"`
 	Notify    []StepNotify             `yaml:"notify,omitempty"`
+	DependsOn interface{}              `json:"depends_on" yaml:"depends_on,omitempty"`
 	Steps     []Step                   `yaml:"steps,omitempty"`
 }
 

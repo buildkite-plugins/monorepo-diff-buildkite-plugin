@@ -943,3 +943,86 @@ func TestPluginShouldClearRawEnvFromNestedSteps(t *testing.T) {
 	assert.Nil(t, secondStep.RawEnv, "Second nested step RawEnv should be nil")
 	assert.Nil(t, secondStep.Build.RawEnv, "Second nested step Build.RawEnv should be nil")
 }
+
+func TestPluginShouldPreserveDependsOnString(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo deploy",
+						"depends_on": "build-step"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Step: Step{
+					Command:   "echo deploy",
+					DependsOn: "build-step",
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestPluginShouldPreserveDependsOnArray(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"trigger": "deploy-pipeline",
+						"depends_on": ["build-step", "test-step"]
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Step: Step{
+					Trigger: "deploy-pipeline",
+					Build: Build{
+						Message: "fix: temp file not correctly deleted",
+						Branch:  "go-rewrite",
+						Commit:  "123",
+					},
+					DependsOn: []interface{}{"build-step", "test-step"},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
