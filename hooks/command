@@ -63,35 +63,6 @@ downloader() {
   fi
 }
 
-check_latest_version() {
-  local _executable="monorepo-diff-buildkite-plugin"
-  local _repo="https://api.github.com/repos/buildkite-plugins/monorepo-diff-buildkite-plugin"
-  local _version=""
-
-  if check_cmd curl; then
-    _version=$(curl -s "${_repo}/releases/latest" | grep -oE '"tag_name": "v[0-9]+\.[0-9]+\.[0-9]+"' | cut -d'"' -f4)
-  elif check_cmd wget; then
-    _version=$(wget -qO- "${_repo}/releases/latest" | grep -oE '"tag_name": "v[0-9]+\.[0-9]+\.[0-9]+"' | cut -d'"' -f4)
-  fi
-
-  if [[ "$_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-    true
-  else
-    _version=""
-  fi
-
-  RETVAL="$_version"
-}
-
-check_binary_version() {
-  local _executable="monorepo-diff-buildkite-plugin"
-  local _version=""
-
-  _version=$(BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE=true ./${_executable} 2>&1 | grep -oE 'running monorepo-diff-buildkite-plugin ([0-9]+\.[0-9]+\.[0-9]+)' | cut -d' ' -f3)
-
-  RETVAL="v${_version}"
-}
-
 get_version() {
   local _plugin=${BUILDKITE_PLUGINS:-""}
   local _version=""
@@ -116,35 +87,17 @@ download_binary_and_run() {
   local _repo="https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin"
 
   get_version || return 1
-  local _specified_version="$RETVAL"
-  local _latest_version=""
-  local _binary_version=""
-  local test_mode="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false}"
-  local _url=""
+  local _version="$RETVAL"
 
-  if check_cmd "./${_executable}"; then
-    if check_binary_version; then
-      _binary_version="$RETVAL"
-    else
-      say "Warning: Could not determine binary version, will download fresh copy"
-    fi
-  fi
-
-  if [[ "$test_mode" == "true" ]]; then
-    true
-  elif [ -z "${_specified_version}" ]; then
-    check_latest_version || return 1
-    _latest_version="$RETVAL"
-    if [[ -z "$_binary_version" ]] || [[ "$_binary_version" != "$_latest_version" ]]; then
-      _url=${_repo}/releases/latest/download/${_executable}_${_arch}
-    fi
+  if [ -z "${_version}" ]; then
+    _url=${_repo}/releases/latest/download/${_executable}_${_arch}
   else
-    if [[ -z "$_binary_version" ]] || [[ "$_binary_version" != "$_specified_version" ]]; then
-      _url=${_repo}/releases/download/${_specified_version}/${_executable}_${_arch}
-    fi
+    _url=${_repo}/releases/download/${_version}/${_executable}_${_arch}
   fi
 
-  if [ -n "${_url}" ]; then
+  local test_mode="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false}"
+
+  if [[ "$test_mode" == "false" ]]; then
     if ! downloader "$_url" "$_executable"; then
       say "failed to download $_url"
       exit 1
