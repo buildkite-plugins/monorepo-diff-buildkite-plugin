@@ -106,8 +106,25 @@ download_binary_and_run() {
 
   # todo: move it to a more secure place
   chmod +x ${_executable}
-  
+
   ./${_executable}
 }
 
-download_binary_and_run "$@" || exit 1
+run_preinstalled_binary() {
+  local _executable="monorepo-diff-buildkite-plugin"
+
+  if ! check_cmd "$_executable"; then
+    err "Binary '$_executable' not found in PATH. Please install it or set download: true"
+  fi
+
+  ${_executable} "$@"
+}
+
+# Check if download option is disabled (default is true for backward compatibility)
+download_enabled="${BUILDKITE_PLUGIN_MONOREPO_DIFF_DOWNLOAD:-true}"
+
+if [[ "$download_enabled" == "false" ]]; then
+  run_preinstalled_binary "$@" || exit 1
+else
+  download_binary_and_run "$@" || exit 1
+fi
