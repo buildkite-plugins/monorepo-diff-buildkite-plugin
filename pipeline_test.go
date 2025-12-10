@@ -119,6 +119,34 @@ func TestDiffWithSubshell(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+func TestDiffWithQuotedPaths(t *testing.T) {
+	want := []string{
+		"projects/test/pages/17_🪁_testfile.py",
+		"normal/file.txt",
+	}
+	got, err := diff(`printf '"projects/test/pages/17_\360\237\252\201_testfile.py" normal/file.txt'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestStepsToTriggerWithEmojiPaths(t *testing.T) {
+	watch := []WatchConfig{
+		{
+			Paths: []string{"projects/**"},
+			Step:  Step{Trigger: "test-pipeline"},
+		},
+	}
+
+	changedFiles := []string{
+		"projects/test/pages/17_🪁_testfile.py",
+		"other/file.txt",
+	}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+	assert.NoError(t, err)
+	assert.Equal(t, []Step{{Trigger: "test-pipeline"}}, steps)
+}
+
 func TestPipelinesToTriggerGetsListOfPipelines(t *testing.T) {
 	want := []string{"service-1", "service-2", "service-4"}
 

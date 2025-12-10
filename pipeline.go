@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
@@ -104,7 +105,25 @@ func diff(command string) ([]string, error) {
 		return nil, fmt.Errorf("diff command failed: %v", err)
 	}
 
-	return strings.Fields(strings.TrimSpace(output)), nil
+	fields := strings.Fields(strings.TrimSpace(output))
+	paths := make([]string, 0, len(fields))
+
+	for _, field := range fields {
+		// Git quotes paths with special characters using C-style quoting
+		if strings.HasPrefix(field, "\"") && strings.HasSuffix(field, "\"") {
+			// Unquote to decode escape sequences (e.g., \360\237\252\201 -> 🪁)
+			if unquoted, err := strconv.Unquote(field); err == nil {
+				paths = append(paths, unquoted)
+			} else {
+				// If unquoting fails, fall back to removing quotes
+				paths = append(paths, strings.Trim(field, "\""))
+			}
+		} else {
+			paths = append(paths, field)
+		}
+	}
+
+	return paths, nil
 }
 
 func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
