@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+executable="monorepo-diff-buildkite-plugin"
+executable_version_file="${executable}.version"
+
 check_cmd() {
   command -v "$1" > /dev/null 2>&1
   return $?
@@ -63,6 +66,27 @@ downloader() {
   fi
 }
 
+get_latest_version() {
+  local _repo="https://api.github.com/repos/buildkite-plugins/monorepo-diff-buildkite-plugin"
+  local _version=""
+
+  if check_cmd curl; then
+    _version=$(curl -s "${_repo}/releases/latest" | grep -oE '"tag_name": "v[0-9]+\.[0-9]+\.[0-9]+"' | cut -d'"' -f4)
+  elif check_cmd wget; then
+    _version=$(wget -qO- "${_repo}/releases/latest" | grep -oE '"tag_name": "v[0-9]+\.[0-9]+\.[0-9]+"' | cut -d'"' -f4)
+  fi
+
+  if [[ "$_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    echo "${_version}"
+  fi
+}
+
+get_binary_version() {
+  if [ -f "${executable_version_file}" ]; then
+    cat "${executable_version_file}" | tr -d '\n'
+  fi
+}
+
 get_version() {
   local _plugin=${BUILDKITE_PLUGINS:-""}
   local _version=""
@@ -83,31 +107,53 @@ get_version() {
 download_binary_and_run() {
   get_architecture || return 1
   local _arch="$RETVAL"
-  local _executable="monorepo-diff-buildkite-plugin"
   local _repo="https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin"
 
   get_version || return 1
-  local _version="$RETVAL"
-
-  if [ -z "${_version}" ]; then
-    _url=${_repo}/releases/latest/download/${_executable}_${_arch}
-  else
-    _url=${_repo}/releases/download/${_version}/${_executable}_${_arch}
-  fi
-
+  local _specified_version="$RETVAL"
+  local _latest_version=""
+  local _binary_version=""
   local test_mode="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false}"
+  local _url=""
 
-  if [[ "$test_mode" == "false" ]]; then
-    if ! downloader "$_url" "$_executable"; then
-      say "failed to download $_url"
-      exit 1
+  if check_cmd "./${executable}"; then
+    _binary_version=$(get_binary_version)
+    if [[ -z "$_binary_version" ]]; then
+      say "Warning: Could not determine binary version, will download fresh copy"
     fi
   fi
 
+  if [[ "$test_mode" == "true" ]]; then
+    true
+  elif [[ "$_specified_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    if [[ -z "$_binary_version" ]] || [[ "$_binary_version" != "$_specified_version" ]]; then
+      _url=${_repo}/releases/download/${_specified_version}/${executable}_${_arch}
+      _binary_version="${_specified_version}"
+    fi
+  else
+    _latest_version=$(get_latest_version)
+    if [[ -z "$_latest_version" ]]; then
+      say "Error: Could not determine latest version"
+      exit 1
+    fi
+    if [[ -z "$_binary_version" ]] || [[ "$_binary_version" != "$_latest_version" ]]; then
+      _url=${_repo}/releases/download/${_latest_version}/${executable}_${_arch}
+      _binary_version="${_latest_version}"
+    fi
+  fi
+
+  if [ -n "${_url}" ]; then
+    if ! downloader "$_url" "${executable}"; then
+      say "failed to download $_url"
+      exit 1
+    fi
+    echo "${_binary_version}" > "${executable_version_file}"
+  fi
+
   # todo: move it to a more secure place
-  chmod +x ${_executable}
+  chmod +x "${executable}"
   
-  ./${_executable}
+  ./"${executable}"
 }
 
 download_binary_and_run "$@" || exit 1
