@@ -281,6 +281,30 @@ steps:
                 trigger: "deploy-foo-service"
 ```
 
+### `download` (optional)
+
+Default: `true`
+
+By setting `download` to `false`, the plugin will use a pre-installed binary instead of downloading it on each run. The binary `monorepo-diff-buildkite-plugin` must be available in your PATH (typically `/usr/bin`).
+
+This option is useful for:
+- Reducing build time by avoiding repeated downloads
+- Improving security by using pre-vetted binaries
+- Organizations with policies against runtime binary downloads
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.5.1:
+          download: false
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "foo-service/"
+              config:
+                trigger: "deploy-foo-service"
+```
+
 ### `hooks` (optional)
 
 Currently supports a list of `commands` you wish to execute after the `watched` pipelines have been triggered
