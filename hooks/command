@@ -6,14 +6,6 @@ set -euo pipefail
 max_retries=3
 retry_delay=5
 
-executable="monorepo-diff-buildkite-plugin"
-executable_version_file="${executable}.version"
-
-check_cmd() {
-  command -v "$1" > /dev/null 2>&1
-  return $?
-}
-
 say() {
     echo "$1"
 }
@@ -23,6 +15,31 @@ err() {
   reset=$(tput sgr0 2>/dev/null || echo '')
   say "${red}ERROR${reset}: $1" >&2
   exit 1
+}
+
+executable_dir="${BUILDKITE_PLUGIN_MONOREPO_DIFF_DOWNLOAD_FOLDER:-${BUILDKITE_PLUGINS_PATH}}"
+
+# Default to current directory if not set
+if [[ -z "${executable_dir}" ]]; then
+  executable_dir="."
+fi
+
+# Create directory if needed
+if [[ ! -d "${executable_dir}" ]]; then
+  mkdir -p "${executable_dir}" || err "Cannot create directory: ${executable_dir}"
+fi
+
+# Verify writable
+if [[ ! -w "${executable_dir}" ]]; then
+  err "Directory not writable: ${executable_dir}"
+fi
+
+executable="${executable_dir}/monorepo-diff-buildkite-plugin"
+executable_version_file="${executable}.version"
+
+check_cmd() {
+  command -v "$1" > /dev/null 2>&1
+  return $?
 }
 
 get_architecture() {
@@ -144,7 +161,7 @@ download_binary_and_run() {
   local test_mode="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false}"
   local _url=""
 
-  if check_cmd "./${executable}"; then
+  if check_cmd "${executable}"; then
     _binary_version=$(get_binary_version)
     if [[ -z "$_binary_version" ]]; then
       say "Warning: Could not determine binary version, will download fresh copy"
@@ -155,7 +172,7 @@ download_binary_and_run() {
     true
   elif [[ "$_specified_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
     if [[ -z "$_binary_version" ]] || [[ "$_binary_version" != "$_specified_version" ]]; then
-      _url=${_repo}/releases/download/${_specified_version}/${executable}_${_arch}
+      _url=${_repo}/releases/download/${_specified_version}/monorepo-diff-buildkite-plugin_${_arch}
       _binary_version="${_specified_version}"
     fi
   else
@@ -165,7 +182,7 @@ download_binary_and_run() {
       exit 1
     fi
     if [[ -z "$_binary_version" ]] || [[ "$_binary_version" != "$_latest_version" ]]; then
-      _url=${_repo}/releases/download/${_latest_version}/${executable}_${_arch}
+      _url=${_repo}/releases/download/${_latest_version}/monorepo-diff-buildkite-plugin_${_arch}
       _binary_version="${_latest_version}"
     fi
   fi
@@ -181,7 +198,7 @@ download_binary_and_run() {
 
   chmod +x "${executable}"
 
-  ./"${executable}"
+  "${executable}"
 }
 
 run_preinstalled_binary() {
