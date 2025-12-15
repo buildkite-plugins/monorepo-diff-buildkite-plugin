@@ -42,7 +42,8 @@ configuration:
         config:
           type: object
           properties:
-            key: string
+            key: 
+              type: string
             command:
               type: string
             trigger:
