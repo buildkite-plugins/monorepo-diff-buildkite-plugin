@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -11,21 +12,35 @@ import (
 )
 
 func mockGeneratePipeline(steps []Step, plugin Plugin) (*os.File, bool, error) {
-	mockFile, _ := os.Create("pipeline.txt")
-	defer func() {
-		_ = mockFile.Close()
-	}()
+	mockFile, err := os.Create("pipeline.txt")
+	if err != nil {
+		return nil, false, err
+	}
+
+	_, err = mockFile.WriteString(`steps:
+  - command: echo "hello"
+`)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if err := mockFile.Close(); err != nil {
+		return nil, false, err
+	}
 
 	return mockFile, true, nil
 }
 
 func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
+	realAgent, err := exec.LookPath("buildkite-agent")
+	if err != nil {
+		t.Skip("real buildkite-agent not installed")
+	}
+
 	plugin := Plugin{Diff: "echo ./foo-service", Interpolation: true}
 
 	agent, err := bintest.NewMock("buildkite-agent")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	oldPath := os.Getenv("PATH")
 	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
@@ -41,18 +56,34 @@ func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt"}, args)
 	assert.NoError(t, err)
 
-	if err := agent.CheckAndClose(t); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, agent.CheckAndClose(t))
+
+	// --- NEW: validate pipeline YAML via real agent ---
+	dryRun := exec.Command(
+		realAgent,
+		"pipeline",
+		"upload",
+		"pipeline.txt",
+		"--dry-run",
+		"--agent-access-token",
+		"dummy",
+	)
+
+	out, err := dryRun.CombinedOutput()
+	t.Log(string(out))
+	require.NoError(t, err, "Buildkite rejected generated YAML")
 }
 
 func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T) {
+	realAgent, err := exec.LookPath("buildkite-agent")
+	if err != nil {
+		t.Skip("buildkite-agent not installed; skipping dry-run validation")
+	}
+
 	plugin := Plugin{Diff: "echo ./foo-service", Interpolation: false}
 
 	agent, err := bintest.NewMock("buildkite-agent")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	oldPath := os.Getenv("PATH")
 	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
@@ -68,9 +99,22 @@ func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T)
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt", "--no-interpolation"}, args)
 	assert.NoError(t, err)
 
-	if err := agent.CheckAndClose(t); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, agent.CheckAndClose(t))
+
+	// --- NEW: real Buildkite validation ---
+	dryRun := exec.Command(
+		realAgent,
+		"pipeline",
+		"upload",
+		"pipeline.txt",
+		"--dry-run",
+		"--agent-access-token",
+		"dummy",
+	)
+
+	out, err := dryRun.CombinedOutput()
+	t.Log(string(out))
+	require.NoError(t, err, "Buildkite rejected generated YAML")
 }
 
 func TestUploadPipelineCancelsIfThereIsNoDiffOutput(t *testing.T) {
@@ -484,7 +528,6 @@ func TestGeneratePipeline(t *testing.T) {
 	}
 
 	pipeline, _, err := generatePipeline(steps, plugin)
-
 	require.NoError(t, err)
 	defer func() {
 		if err = os.Remove(pipeline.Name()); err != nil {
@@ -529,6 +572,22 @@ steps:
 `
 
 	assert.Equal(t, want, string(got))
+
+	// --- New: validate generated pipeline with buildkite-agent dry-run ---
+	if _, err := exec.LookPath("buildkite-agent"); err == nil {
+		cmd := exec.Command(
+			"buildkite-agent",
+			"pipeline", "upload",
+			pipeline.Name(),
+			"--dry-run",
+			"--agent-access-token", "dummy",
+		)
+		out, err := cmd.CombinedOutput()
+		t.Log(string(out))
+		require.NoError(t, err, "Buildkite rejected generated YAML")
+	} else {
+		t.Log("buildkite-agent not installed; skipping dry-run validation")
+	}
 }
 
 func TestGeneratePipelineWithNoStepsAndHooks(t *testing.T) {
@@ -552,14 +611,29 @@ func TestGeneratePipelineWithNoStepsAndHooks(t *testing.T) {
 	require.NoError(t, err)
 	defer func() {
 		if err = os.Remove(pipeline.Name()); err != nil {
-			t.Logf("failed to remove teme file: %v", err)
+			t.Logf("failed to remove temporary file: %v", err)
 		}
 	}()
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
-
 	assert.Equal(t, want, string(got))
+
+	// --- New: validate generated pipeline with buildkite-agent dry-run ---
+	if _, err := exec.LookPath("buildkite-agent"); err == nil {
+		cmd := exec.Command(
+			"buildkite-agent",
+			"pipeline", "upload",
+			pipeline.Name(),
+			"--dry-run",
+			"--agent-access-token", "dummy",
+		)
+		out, err := cmd.CombinedOutput()
+		t.Log(string(out))
+		require.NoError(t, err, "Buildkite rejected generated YAML")
+	} else {
+		t.Log("buildkite-agent not installed; skipping dry-run validation")
+	}
 }
 
 func TestGeneratePipelineWithNoStepsAndNoHooks(t *testing.T) {
@@ -580,8 +654,23 @@ func TestGeneratePipelineWithNoStepsAndNoHooks(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
-
 	assert.Equal(t, want, string(got))
+
+	// --- New: validate generated pipeline with buildkite-agent dry-run ---
+	if _, err := exec.LookPath("buildkite-agent"); err == nil {
+		cmd := exec.Command(
+			"buildkite-agent",
+			"pipeline", "upload",
+			pipeline.Name(),
+			"--dry-run",
+			"--agent-access-token", "dummy",
+		)
+		out, err := cmd.CombinedOutput()
+		t.Log(string(out))
+		require.NoError(t, err, "Buildkite rejected generated YAML")
+	} else {
+		t.Log("buildkite-agent not installed; skipping dry-run validation")
+	}
 }
 
 func TestGeneratePipelineWithCondition(t *testing.T) {
@@ -617,8 +706,23 @@ func TestGeneratePipelineWithCondition(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
-
 	assert.Equal(t, want, string(got))
+
+	// --- New: validate pipeline YAML with buildkite-agent dry-run ---
+	if _, err := exec.LookPath("buildkite-agent"); err == nil {
+		cmd := exec.Command(
+			"buildkite-agent",
+			"pipeline", "upload",
+			pipeline.Name(),
+			"--dry-run",
+			"--agent-access-token", "dummy",
+		)
+		out, err := cmd.CombinedOutput()
+		t.Log(string(out))
+		require.NoError(t, err, "Buildkite rejected generated YAML")
+	} else {
+		t.Log("buildkite-agent not installed; skipping dry-run validation")
+	}
 }
 
 func TestGeneratePipelineWithDependsOn(t *testing.T) {
@@ -662,6 +766,21 @@ func TestGeneratePipelineWithDependsOn(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
-
 	assert.Equal(t, want, string(got))
+
+	// --- New: validate pipeline YAML with buildkite-agent dry-run ---
+	if _, err := exec.LookPath("buildkite-agent"); err == nil {
+		cmd := exec.Command(
+			"buildkite-agent",
+			"pipeline", "upload",
+			pipeline.Name(),
+			"--dry-run",
+			"--agent-access-token", "dummy",
+		)
+		out, err := cmd.CombinedOutput()
+		t.Log(string(out))
+		require.NoError(t, err, "Buildkite rejected generated YAML")
+	} else {
+		t.Log("buildkite-agent not installed; skipping dry-run validation")
+	}
 }
