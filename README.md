@@ -45,7 +45,7 @@ For example, in the following configuration:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "**/*"
@@ -78,7 +78,7 @@ This is a sub-section that provides configuration for running commands or trigge
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.0:
           watch:
             - path: app/
               config:
@@ -109,7 +109,7 @@ steps:
 steps:
   - label: "Triggering pipelines with plugin"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.0:
           watch:
             - path: test/.buildkite/
               config: # Required [trigger step configuration]
@@ -138,7 +138,7 @@ The plugin supports conditional execution of pipeline steps using the `if` key, 
 steps:
   - label: "Triggering pipelines with plugin"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.0:
           diff: git diff --name-only HEAD~1
           watch:
             - path: services/api
@@ -201,7 +201,7 @@ git diff --name-only "$LATEST_TAG"
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
@@ -228,7 +228,7 @@ A default `config` to run if no paths are matched, the `config` key is not requi
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
@@ -250,7 +250,7 @@ The object values provided in this configuration will be appended to `env` prope
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "foo-service/"
@@ -272,7 +272,7 @@ Add `log_level` property to set the log level. Supported log levels are `debug` 
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.0:
           diff: "git diff --name-only HEAD~1"
           log_level: "debug" # defaults to "info"
           watch:
@@ -327,7 +327,7 @@ By setting `wait` to `true`, the build will wait until the triggered pipeline bu
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.0:
           diff: "git diff --name-only $(head -n 1 last_successful_build)"
           interpolation: false
           env:
