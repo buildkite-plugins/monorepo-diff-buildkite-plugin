@@ -1026,3 +1026,95 @@ func TestPluginShouldPreserveDependsOnArray(t *testing.T) {
 		t.Fatalf("plugin diff (-want +got):\n%s", diff)
 	}
 }
+
+func TestPluginShouldPreserveSecrets(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo deploy",
+						"secrets": {
+							"DATABRICKS_HOST": "databricks_host_secret",
+							"DATABRICKS_TOKEN": "databricks_token_secret"
+						}
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Step: Step{
+					Command: "echo deploy",
+					Secrets: map[string]string{
+						"DATABRICKS_HOST":  "databricks_host_secret",
+						"DATABRICKS_TOKEN": "databricks_token_secret",
+					},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestPluginShouldPreserveSecretsInNestedSteps(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"group": "deploy group",
+						"steps": [
+							{
+								"command": "echo deploy uat",
+								"label": "Deploy UAT",
+								"secrets": {
+									"DB_HOST": "uat_db_host"
+								}
+							},
+							{
+								"command": "echo deploy prod",
+								"label": "Deploy Prod",
+								"secrets": {
+									"DB_HOST": "prod_db_host"
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 1, len(got.Watch))
+	assert.Equal(t, "deploy group", got.Watch[0].Step.Group)
+	assert.Equal(t, 2, len(got.Watch[0].Step.Steps))
+
+	// Verify nested steps have correct secrets
+	firstStep := got.Watch[0].Step.Steps[0]
+	assert.Equal(t, "echo deploy uat", firstStep.Command)
+	assert.Equal(t, "uat_db_host", firstStep.Secrets["DB_HOST"])
+
+	secondStep := got.Watch[0].Step.Steps[1]
+	assert.Equal(t, "echo deploy prod", secondStep.Command)
+	assert.Equal(t, "prod_db_host", secondStep.Secrets["DB_HOST"])
+}

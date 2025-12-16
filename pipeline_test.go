@@ -714,3 +714,91 @@ func TestGeneratePipelineWithStepKey(t *testing.T) {
 
 	assert.Equal(t, want, string(got))
 }
+
+func TestGeneratePipelineWithSecrets(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo deploy",
+			Label:   "Deploy",
+			Secrets: map[string]string{
+				"DATABRICKS_HOST":  "databricks_host_secret",
+				"DATABRICKS_TOKEN": "databricks_token_secret",
+			},
+		},
+	}
+
+	want := `steps:
+    - label: Deploy
+      command: echo deploy
+      secrets:
+        DATABRICKS_HOST: databricks_host_secret
+        DATABRICKS_TOKEN: databricks_token_secret
+`
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	assert.Equal(t, want, string(got))
+}
+
+func TestGeneratePipelineWithSecretsInGroup(t *testing.T) {
+	steps := []Step{
+		{
+			Group: "deploy group",
+			Steps: []Step{
+				{
+					Command: "echo deploy uat",
+					Label:   "Deploy UAT",
+					Secrets: map[string]string{
+						"DB_HOST": "uat_db_host",
+					},
+				},
+				{
+					Command: "echo deploy prod",
+					Label:   "Deploy Prod",
+					Secrets: map[string]string{
+						"DB_HOST": "prod_db_host",
+					},
+				},
+			},
+		},
+	}
+
+	want := `steps:
+    - group: deploy group
+      steps:
+        - label: Deploy UAT
+          command: echo deploy uat
+          secrets:
+            DB_HOST: uat_db_host
+        - label: Deploy Prod
+          command: echo deploy prod
+          secrets:
+            DB_HOST: prod_db_host
+`
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	assert.Equal(t, want, string(got))
+}
