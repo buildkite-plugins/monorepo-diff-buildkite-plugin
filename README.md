@@ -297,6 +297,23 @@ Default: `true`
 
 By setting `wait` to `true`, the build will wait until the triggered pipeline builds are successful before proceeding
 
+### `key` (optional)
+
+Add `key` to set the step or group key.
+
+```yaml
+steps:
+  - label: "Setting Key"
+    plugins:
+      - monorepo-diff#v1.5.2:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "bar-service/"
+              config:
+                key: echo-step
+                command: "echo deploy-bar"
+```
+
 ## Example
 
 ```yaml
@@ -317,6 +334,7 @@ steps:
               config:
                 command: "buildkite-agent pipeline upload ops/.buildkite/pipeline.yml"
                 label: "Upload pipeline"
+                key: pipeline-upload
                 # following configs are available in command. notify is not available in trigger step
                 notify:
                   - basecamp_campfire: https://basecamp-url
