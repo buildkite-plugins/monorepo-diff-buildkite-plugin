@@ -296,7 +296,7 @@ This option is useful for:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.1:
+      - monorepo-diff#v1.6.0:
           download: false
           diff: "git diff --name-only HEAD~1"
           watch:
