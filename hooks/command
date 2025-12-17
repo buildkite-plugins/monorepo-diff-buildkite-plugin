@@ -80,7 +80,7 @@ downloader() {
   if [ "$1" = --check ]; then
     need_cmd "$_dld"
   elif [ "$_dld" = curl ]; then
-    curl -sSfL "$1" -o "$2"
+    curl -fL "$1" -o "$2"
   elif [ "$_dld" = wget ]; then
     wget "$1" -O "$2"
   else
