@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Retry configuration for downloads
+# Hardcoded values - meant for transient network issues, not hard outages
+max_retries=3
+retry_delay=5
+
 executable="monorepo-diff-buildkite-plugin"
 executable_version_file="${executable}.version"
 
@@ -64,6 +69,29 @@ downloader() {
   else
     err "Unknown downloader"
   fi
+}
+
+# Retry wrapper for downloads (SUP-5615)
+download_with_retry() {
+  local _url="$1"
+  local _dest="$2"
+  local _attempt=1
+
+  while [ $_attempt -le "$max_retries" ]; do
+    say "Downloading binary (attempt ${_attempt}/${max_retries})..."
+    if downloader "$_url" "$_dest"; then
+      say "Download successful"
+      return 0
+    fi
+
+    if [ $_attempt -lt "$max_retries" ]; then
+      say "Download failed, retrying in ${retry_delay} seconds..."
+      sleep "$retry_delay"
+    fi
+    _attempt=$((_attempt + 1))
+  done
+
+  return 1
 }
 
 get_latest_version() {
@@ -143,14 +171,14 @@ download_binary_and_run() {
   fi
 
   if [ -n "${_url}" ]; then
-    if ! downloader "$_url" "${executable}"; then
-      say "failed to download $_url"
+    # Use retry wrapper for resilient downloads (SUP-5615)
+    if ! download_with_retry "$_url" "${executable}"; then
+      say "Failed to download $_url after ${max_retries} attempts"
       exit 1
     fi
     echo "${_binary_version}" > "${executable_version_file}"
   fi
 
-  # todo: move it to a more secure place
   chmod +x "${executable}"
 
   ./"${executable}"
