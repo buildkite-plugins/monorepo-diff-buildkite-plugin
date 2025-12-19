@@ -94,3 +94,58 @@ teardown() {
   # Clean up stub (it should not have been called)
   unstub curl || true
 }
+
+# Tests for download_with_retry() function (SUP-5615)
+
+@test "download retries on transient failure and succeeds" {
+  export BUILDKITE_PLUGIN_MONOREPO_DIFF_DOWNLOAD=true
+  export BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE=false
+  # Use pinned version to skip get_latest_version API call
+  export BUILDKITE_PLUGINS='[{"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#v1.0.0": {}}]'
+  
+  # Remove mock binary so it actually needs to download
+  rm -f "$PWD/monorepo-diff-buildkite-plugin"
+  rm -f "$PWD/monorepo-diff-buildkite-plugin.version"
+  
+  # Stub curl: fail twice on download, then succeed and create executable
+  stub curl \
+    "-sSfL * -o * : exit 1" \
+    "-sSfL * -o * : exit 1" \
+    "-sSfL * -o * : echo '#!/bin/bash' > \"\${4}\"; echo 'echo test' >> \"\${4}\"; exit 0"
+
+  run "$PWD/hooks/command"
+
+  assert_output --partial "Downloading binary (attempt 1/3)"
+  assert_output --partial "Download failed, retrying"
+  assert_output --partial "Downloading binary (attempt 2/3)"
+  assert_output --partial "Downloading binary (attempt 3/3)"
+  assert_output --partial "Download successful"
+
+  unstub curl
+}
+
+@test "download fails after max retries exhausted" {
+  export BUILDKITE_PLUGIN_MONOREPO_DIFF_DOWNLOAD=true
+  export BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE=false
+  # Use pinned version to skip get_latest_version API call
+  export BUILDKITE_PLUGINS='[{"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#v1.0.0": {}}]'
+  
+  # Remove mock binary so it actually needs to download
+  rm -f "$PWD/monorepo-diff-buildkite-plugin"
+  
+  # Stub curl to always fail on download
+  stub curl \
+    "-sSfL * -o * : exit 1" \
+    "-sSfL * -o * : exit 1" \
+    "-sSfL * -o * : exit 1"
+
+  run "$PWD/hooks/command"
+
+  assert_failure
+  assert_output --partial "Downloading binary (attempt 1/3)"
+  assert_output --partial "Downloading binary (attempt 2/3)"
+  assert_output --partial "Downloading binary (attempt 3/3)"
+  assert_output --partial "Failed to download"
+
+  unstub curl
+}

@@ -305,6 +305,10 @@ steps:
                 trigger: "deploy-foo-service"
 ```
 
+### Download Retry Behavior
+
+The plugin automatically retries binary downloads up to 3 times with a 5-second delay between attempts. This handles transient network issues when downloading from GitHub.
+
 ### `hooks` (optional)
 
 Currently supports a list of `commands` you wish to execute after the `watched` pipelines have been triggered
