@@ -388,6 +388,21 @@ steps:
           wait: true
 ```
 
+### `download_folder` (optional)
+
+Default: `BUILDKITE_PLUGINS_PATH`
+
+This is the filesystem folder where the Go binary will be download to.
+
+## Example
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.5.2:
+          download_folder: "/var/buildkite-agent"
+```
+
 ## Compatibility
 
 | Elastic Stack | Agent Stack K8s | Hosted (Mac) | Hosted (Linux) | Notes |
