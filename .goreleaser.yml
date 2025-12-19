@@ -14,9 +14,7 @@ builds:
       - linux
       - darwin
     goarch:
-      - "386"
       - amd64
-      - arm
       - arm64
       - ppc64le
 
@@ -26,8 +24,6 @@ checksum:
 archives:
   - formats: ['binary']
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - completions/*
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

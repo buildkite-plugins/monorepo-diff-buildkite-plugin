@@ -195,3 +195,23 @@ steps:
             - default:
                 config:
                   command: "echo hello-world"
+
+  - block: ":package: Create a release?"
+    prompt: "Fill out the tag to create for this release"
+    branches:
+      - main
+    blocked_state: passed
+    fields:
+      - key: release-tag
+        text: Tag
+        required: true
+        hint: "Eg: v3.0.0"
+
+  - label: ":rocket: Push tag to release"
+    command: ".buildkite/tag.sh"
+    branches:
+      - main
+    plugins:
+      - secrets#v1.0.2:
+          variables:
+            GITHUB_TOKEN: GITHUB_TOKEN

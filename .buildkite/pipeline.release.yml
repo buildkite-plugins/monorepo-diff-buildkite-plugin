@@ -1,0 +1,44 @@
+agents:
+  queue: hosted
+
+steps:
+  - label: ":sparkles: Lint"
+    plugins:
+      plugin-linter#v3.3.0:
+        id: monorepo-diff
+
+  - wait: ~
+  
+  - label: ":rocket: :github: release"
+    artifact_paths:
+      - dist/**/*
+    env:
+      AWS_REGION: us-east-1
+    plugins:
+      - aws-assume-role-with-web-identity#v1.4.0:
+          role-arn: arn:aws:iam::445615400570:role/pipeline-buildkite-buildkite-cli-release
+          session-tags:
+            - organization_slug
+            - organization_id
+            - pipeline_slug
+      - aws-ssm#v1.0.0:
+          parameters:
+            GITHUB_TOKEN: /pipelines/buildkite/monorail-/github-token
+      - artifacts#v1.9.3:
+          download:
+            - dist/**/*
+      - docker#v5.13.0:
+          image: "goreleaser/goreleaser:v2"
+          always-pull: true
+          workdir: /plugin
+          environment:
+            - GITHUB_TOKEN
+          command:
+            - release
+            - --clean
+
+  - label: ":rocket: :github: Release"
+    plugins:
+      - secrets#v1.0.2:
+          variables:
+            GITHUB_TOKEN: GITHUB_TOKEN
