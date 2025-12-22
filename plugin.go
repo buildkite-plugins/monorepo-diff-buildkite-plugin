@@ -95,6 +95,7 @@ type Step struct {
 	Notify    []StepNotify             `yaml:"notify,omitempty"`
 	DependsOn interface{}              `json:"depends_on" yaml:"depends_on,omitempty"`
 	Key       string                   `yaml:"key,omitempty"`
+	Secrets   interface{}              `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 	Steps     []Step                   `yaml:"steps,omitempty"`
 }
 
