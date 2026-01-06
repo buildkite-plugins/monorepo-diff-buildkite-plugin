@@ -1026,3 +1026,64 @@ func TestPluginShouldPreserveDependsOnArray(t *testing.T) {
 		t.Fatalf("plugin diff (-want +got):\n%s", diff)
 	}
 }
+
+func TestPluginEnvWithEqualsSignsAndSpacesInValues(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"env": [
+				"EXTRA_BUILD_ARGS=--build-arg=ARG1=value1",
+				"QUOTED_ARGS=\"--build-arg=ARG1=value1\"",
+				"SPACE_VALUE=value with spaces",
+				"COMPLEX=\"--opt1=val1 --opt2=val2\""
+			],
+			"watch": [
+				{
+					"path": "services/",
+					"config": {
+						"command": "echo test"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Env: map[string]string{
+			"EXTRA_BUILD_ARGS": "--build-arg=ARG1=value1",
+			"QUOTED_ARGS":      "\"--build-arg=ARG1=value1\"",
+			"SPACE_VALUE":      "value with spaces",
+			"COMPLEX":          "\"--opt1=val1 --opt2=val2\"",
+		},
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"services/"},
+				Step: Step{
+					Command: "echo test",
+					Env: map[string]string{
+						"EXTRA_BUILD_ARGS": "--build-arg=ARG1=value1",
+						"QUOTED_ARGS":      "\"--build-arg=ARG1=value1\"",
+						"SPACE_VALUE":      "value with spaces",
+						"COMPLEX":          "\"--opt1=val1 --opt2=val2\"",
+					},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+
+	// Explicitly verify the env values are correct
+	assert.Equal(t, "--build-arg=ARG1=value1", got.Env["EXTRA_BUILD_ARGS"])
+	assert.Equal(t, "\"--build-arg=ARG1=value1\"", got.Env["QUOTED_ARGS"])
+	assert.Equal(t, "value with spaces", got.Env["SPACE_VALUE"])
+	assert.Equal(t, "\"--opt1=val1 --opt2=val2\"", got.Env["COMPLEX"])
+}

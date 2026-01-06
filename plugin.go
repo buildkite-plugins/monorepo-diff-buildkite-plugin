@@ -443,16 +443,16 @@ func parseEnv(raw interface{}) (map[string]string, error) {
 
 	result := make(map[string]string)
 	for _, v := range raw.([]interface{}) {
-		split := strings.Split(v.(string), "=")
-		key, value := strings.TrimSpace(split[0]), split[1:]
+		split := strings.SplitN(v.(string), "=", 2)
+		key := strings.TrimSpace(split[0])
 
 		// only key exists. set value from env
-		if len(key) > 0 && len(value) == 0 {
+		if len(key) > 0 && len(split) == 1 {
 			result[key] = env(key, "")
 		}
 
-		if len(value) > 0 {
-			result[key] = strings.TrimSpace(value[0])
+		if len(split) == 2 {
+			result[key] = strings.TrimSpace(split[1])
 		}
 	}
 
