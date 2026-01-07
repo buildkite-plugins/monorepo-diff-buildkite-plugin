@@ -399,8 +399,13 @@ This is the filesystem folder where the Go binary will be download to.
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.6.1:
           download_folder: "/var/buildkite-agent"
+          watch:
+            - path: "bar-service/"
+              config:
+                key: echo-step
+                command: "echo deploy-bar"
 ```
 
 ## Compatibility
