@@ -109,9 +109,9 @@ teardown() {
   
   # Stub curl: fail twice on download, then succeed and create executable
   stub curl \
-    "-sSfL * -o * : exit 1" \
-    "-sSfL * -o * : exit 1" \
-    "-sSfL * -o * : echo '#!/bin/bash' > \"\${4}\"; echo 'echo test' >> \"\${4}\"; exit 0"
+    "-fL * -o * : exit 1" \
+    "-fL * -o * : exit 1" \
+    "-fL * -o * : echo '#!/bin/bash' > \"\${4}\"; echo 'echo test' >> \"\${4}\"; exit 0"
 
   run "$PWD/hooks/command"
 
@@ -135,9 +135,9 @@ teardown() {
   
   # Stub curl to always fail on download
   stub curl \
-    "-sSfL * -o * : exit 1" \
-    "-sSfL * -o * : exit 1" \
-    "-sSfL * -o * : exit 1"
+    "-fL * -o * : exit 1" \
+    "-fL * -o * : exit 1" \
+    "-fL * -o * : exit 1"
 
   run "$PWD/hooks/command"
 
