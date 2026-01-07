@@ -1087,3 +1087,137 @@ func TestPluginEnvWithEqualsSignsAndSpacesInValues(t *testing.T) {
 	assert.Equal(t, "value with spaces", got.Env["SPACE_VALUE"])
 	assert.Equal(t, "\"--opt1=val1 --opt2=val2\"", got.Env["COMPLEX"])
 }
+
+func TestPluginShouldPreserveSecretsAsMap(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo deploy",
+						"secrets": {
+							"DATABRICKS_HOST": "databricks_host_secret",
+							"DATABRICKS_TOKEN": "databricks_token_secret"
+						}
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Step: Step{
+					Command: "echo deploy",
+					Secrets: map[string]interface{}{
+						"DATABRICKS_HOST":  "databricks_host_secret",
+						"DATABRICKS_TOKEN": "databricks_token_secret",
+					},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestPluginShouldPreserveSecretsAsArray(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo deploy",
+						"secrets": ["API_ACCESS_TOKEN", "DATABASE_PASSWORD"]
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Step: Step{
+					Command: "echo deploy",
+					Secrets: []interface{}{"API_ACCESS_TOKEN", "DATABASE_PASSWORD"},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestPluginShouldPreserveSecretsInNestedSteps(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"group": "deploy group",
+						"steps": [
+							{
+								"command": "echo deploy uat",
+								"label": "Deploy UAT",
+								"secrets": {
+									"DB_HOST": "uat_db_host"
+								}
+							},
+							{
+								"command": "echo deploy prod",
+								"label": "Deploy Prod",
+								"secrets": ["PROD_DB_HOST", "PROD_DB_PASS"]
+							}
+						]
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 1, len(got.Watch))
+	assert.Equal(t, "deploy group", got.Watch[0].Step.Group)
+	assert.Equal(t, 2, len(got.Watch[0].Step.Steps))
+
+	// Verify first nested step has secrets as map
+	firstStep := got.Watch[0].Step.Steps[0]
+	assert.Equal(t, "echo deploy uat", firstStep.Command)
+	secretsMap, ok := firstStep.Secrets.(map[string]interface{})
+	assert.True(t, ok, "first step secrets should be a map")
+	assert.Equal(t, "uat_db_host", secretsMap["DB_HOST"])
+
+	// Verify second nested step has secrets as array
+	secondStep := got.Watch[0].Step.Steps[1]
+	assert.Equal(t, "echo deploy prod", secondStep.Command)
+	secretsArray, ok := secondStep.Secrets.([]interface{})
+	assert.True(t, ok, "second step secrets should be an array")
+	assert.Equal(t, []interface{}{"PROD_DB_HOST", "PROD_DB_PASS"}, secretsArray)
+}

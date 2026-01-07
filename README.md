@@ -342,6 +342,67 @@ steps:
                 command: "echo deploy-bar"
 ```
 
+### `secrets` (optional)
+
+Add `secrets` to inject [Buildkite Secrets](https://buildkite.com/docs/pipelines/security/secrets/buildkite-secrets) into your command steps. Secrets can be specified in two formats:
+
+**Array format** - secret names are used as environment variable names:
+
+```yaml
+steps:
+  - label: "Deploy with secrets"
+    plugins:
+      - monorepo-diff#v1.6.2:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "service/"
+              config:
+                command: "deploy.sh"
+                secrets:
+                  - API_ACCESS_TOKEN
+                  - DATABASE_PASSWORD
+```
+
+**Map format** - specify custom environment variable names:
+
+```yaml
+steps:
+  - label: "Deploy with secrets"
+    plugins:
+      - monorepo-diff#v1.6.2:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "service/"
+              config:
+                command: "deploy.sh"
+                secrets:
+                  MY_API_KEY: api_access_token_secret
+                  DB_PASS: database_password_secret
+```
+
+Secrets also work within grouped steps:
+
+```yaml
+steps:
+  - label: "Deploy services"
+    plugins:
+      - monorepo-diff#v1.6.2:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "services/"
+              config:
+                group: "Deploy"
+                steps:
+                  - command: "deploy-uat.sh"
+                    label: "Deploy UAT"
+                    secrets:
+                      - UAT_DB_HOST
+                  - command: "deploy-prod.sh"
+                    label: "Deploy Prod"
+                    secrets:
+                      DB_HOST: prod_db_host_secret
+```
+
 ## Example
 
 ```yaml

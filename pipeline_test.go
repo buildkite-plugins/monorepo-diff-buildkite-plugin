@@ -714,3 +714,114 @@ func TestGeneratePipelineWithStepKey(t *testing.T) {
 
 	assert.Equal(t, want, string(got))
 }
+
+func TestGeneratePipelineWithSecretsAsMap(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo deploy",
+			Label:   "Deploy",
+			Secrets: map[string]interface{}{
+				"DATABRICKS_HOST":  "databricks_host_secret",
+				"DATABRICKS_TOKEN": "databricks_token_secret",
+			},
+		},
+	}
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	// Check that the output contains the expected secrets (order may vary in maps)
+	assert.Contains(t, string(got), "label: Deploy")
+	assert.Contains(t, string(got), "command: echo deploy")
+	assert.Contains(t, string(got), "secrets:")
+	assert.Contains(t, string(got), "DATABRICKS_HOST: databricks_host_secret")
+	assert.Contains(t, string(got), "DATABRICKS_TOKEN: databricks_token_secret")
+}
+
+func TestGeneratePipelineWithSecretsAsArray(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo deploy",
+			Label:   "Deploy",
+			Secrets: []interface{}{"API_ACCESS_TOKEN", "DATABASE_PASSWORD"},
+		},
+	}
+
+	want := `steps:
+    - label: Deploy
+      command: echo deploy
+      secrets:
+        - API_ACCESS_TOKEN
+        - DATABASE_PASSWORD
+`
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	assert.Equal(t, want, string(got))
+}
+
+func TestGeneratePipelineWithSecretsInGroup(t *testing.T) {
+	steps := []Step{
+		{
+			Group: "deploy group",
+			Steps: []Step{
+				{
+					Command: "echo deploy uat",
+					Label:   "Deploy UAT",
+					Secrets: map[string]interface{}{
+						"DB_HOST": "uat_db_host",
+					},
+				},
+				{
+					Command: "echo deploy prod",
+					Label:   "Deploy Prod",
+					Secrets: []interface{}{"PROD_DB_HOST", "PROD_DB_PASS"},
+				},
+			},
+		},
+	}
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	// Check structure and content (map order may vary)
+	assert.Contains(t, string(got), "group: deploy group")
+	assert.Contains(t, string(got), "label: Deploy UAT")
+	assert.Contains(t, string(got), "command: echo deploy uat")
+	assert.Contains(t, string(got), "DB_HOST: uat_db_host")
+	assert.Contains(t, string(got), "label: Deploy Prod")
+	assert.Contains(t, string(got), "command: echo deploy prod")
+	assert.Contains(t, string(got), "- PROD_DB_HOST")
+	assert.Contains(t, string(got), "- PROD_DB_PASS")
+}
