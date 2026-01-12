@@ -20,7 +20,7 @@ err() {
 executable_dir="${BUILDKITE_PLUGIN_MONOREPO_DIFF_DOWNLOAD_FOLDER:-${BUILDKITE_PLUGINS_PATH}}"
 
 # Default to current directory if not set
-if [[ -z "${executable_dir}" ]]; then
+if [[ -z "${executable_dir}" ||  ${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false} == "true" ]]; then
   executable_dir="."
 fi
 
