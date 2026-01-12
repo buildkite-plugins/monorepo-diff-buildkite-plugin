@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.25.5
 
 require (
-	github.com/bmatcuk/doublestar/v4 v4.9.1
+	github.com/bmatcuk/doublestar/v4 v4.9.2
 	github.com/buildkite/bintest/v3 v3.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/sirupsen/logrus v1.9.3
