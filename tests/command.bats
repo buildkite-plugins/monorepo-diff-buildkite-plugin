@@ -9,6 +9,7 @@ setup() {
   export BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE=true
   # Set a minimal plugin config (only used by Go binary, not the bash hook's download logic)
   export BUILDKITE_PLUGINS='[{"monorepo-diff": {}}]'
+  export BUILDKITE_PLUGINS_PATH='/etc/buildkite-agent/plugins'
   
   # Create a mock binary in the current directory for download mode tests
   cat > "$PWD/monorepo-diff-buildkite-plugin" << 'MOCKBIN'
@@ -104,8 +105,8 @@ teardown() {
   export BUILDKITE_PLUGINS='[{"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#v1.0.0": {}}]'
   
   # Remove mock binary so it actually needs to download
-  rm -f "$PWD/monorepo-diff-buildkite-plugin"
-  rm -f "$PWD/monorepo-diff-buildkite-plugin.version"
+  rm -f "$BUILDKITE_PLUGINS_PATH/monorepo-diff-buildkite-plugin"
+  rm -f "$BUILDKITE_PLUGINS_PATH/monorepo-diff-buildkite-plugin.version"
   
   # Stub curl: fail twice on download, then succeed and create executable
   stub curl \
@@ -129,9 +130,10 @@ teardown() {
   export BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE=false
   # Use pinned version to skip get_latest_version API call
   export BUILDKITE_PLUGINS='[{"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#v1.0.0": {}}]'
-  
+
   # Remove mock binary so it actually needs to download
-  rm -f "$PWD/monorepo-diff-buildkite-plugin"
+  rm -f "$BUILDKITE_PLUGINS_PATH/monorepo-diff-buildkite-plugin"
+  rm -f "$BUILDKITE_PLUGINS_PATH/monorepo-diff-buildkite-plugin.version"
   
   # Stub curl to always fail on download
   stub curl \
