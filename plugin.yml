@@ -15,7 +15,7 @@ configuration:
       type: boolean
     env:
       type: array
-    download_folder:
+    binary_folder:
       type: string
     notify:
       type: [array]
