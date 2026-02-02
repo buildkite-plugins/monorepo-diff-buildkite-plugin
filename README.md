@@ -449,6 +449,26 @@ steps:
           wait: true
 ```
 
+**Note:** This plugin accepts both `artifact_paths` and `artifacts` field names for backward compatibility:
+
+```yaml
+# Preferred - use "artifact_paths":
+- path: "app/"
+  config:
+    command: "npm test"
+    artifact_paths:
+      - "logs/**/*"
+
+# Also supported - "artifacts":
+- path: "app/"
+  config:
+    command: "npm test"
+    artifacts:
+      - "logs/**/*"
+```
+
+Both field names are supported by Buildkite. The generated pipeline YAML will use `artifact_paths`.
+
 ### `download_folder` (optional)
 
 Default: `BUILDKITE_PLUGINS_PATH`
