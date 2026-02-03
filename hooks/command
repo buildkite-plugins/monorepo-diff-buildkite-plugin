@@ -17,7 +17,7 @@ err() {
   exit 1
 }
 
-executable_dir="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BINARY_FOLDER:-${BUILDKITE_PLUGINS_PATH}}"
+executable_dir="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BINARY_FOLDER:-${BUILDKITE_PLUGINS_PATH:-}}"
 
 # Default to current directory if not set
 if [[ -z "${executable_dir}" ||  ${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false} == "true" ]]; then

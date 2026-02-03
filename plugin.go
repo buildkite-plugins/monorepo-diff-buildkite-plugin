@@ -76,27 +76,66 @@ type StepNotify struct {
 
 // Step is buildkite pipeline definition
 type Step struct {
-	Group     string                   `yaml:"group,omitempty"`
-	Trigger   string                   `yaml:"trigger,omitempty"`
-	Label     string                   `yaml:"label,omitempty"`
-	Branches  string                   `yaml:"branches,omitempty"`
-	Condition string                   `json:"if,omitempty" yaml:"if,omitempty"`
-	Build     Build                    `yaml:"build,omitempty"`
-	Command   interface{}              `yaml:"command,omitempty"`
-	Commands  interface{}              `yaml:"commands,omitempty"`
-	Agents    Agent                    `yaml:"agents,omitempty"`
-	Artifacts []string                 `yaml:"artifacts,omitempty"`
-	RawEnv    interface{}              `json:"env" yaml:",omitempty"`
-	Plugins   []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
-	Env       map[string]string        `yaml:"env,omitempty"`
-	Async     bool                     `yaml:"async,omitempty"`
-	SoftFail  interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
-	RawNotify []map[string]interface{} `json:"notify" yaml:",omitempty"`
-	Notify    []StepNotify             `yaml:"notify,omitempty"`
-	DependsOn interface{}              `json:"depends_on" yaml:"depends_on,omitempty"`
-	Key       string                   `yaml:"key,omitempty"`
-	Secrets   interface{}              `json:"secrets,omitempty" yaml:"secrets,omitempty"`
-	Steps     []Step                   `yaml:"steps,omitempty"`
+	Group         string                   `yaml:"group,omitempty"`
+	Trigger       string                   `yaml:"trigger,omitempty"`
+	Label         string                   `yaml:"label,omitempty"`
+	Branches      string                   `yaml:"branches,omitempty"`
+	Condition     string                   `json:"if,omitempty" yaml:"if,omitempty"`
+	Build         Build                    `yaml:"build,omitempty"`
+	Command       interface{}              `yaml:"command,omitempty"`
+	Commands      interface{}              `yaml:"commands,omitempty"`
+	Agents        Agent                    `yaml:"agents,omitempty"`
+	ArtifactPaths []string                 `json:"artifact_paths" yaml:"artifact_paths,omitempty"`
+	RawEnv        interface{}              `json:"env" yaml:",omitempty"`
+	Plugins       []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
+	Env           map[string]string        `yaml:"env,omitempty"`
+	Async         bool                     `yaml:"async,omitempty"`
+	SoftFail      interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
+	RawNotify     []map[string]interface{} `json:"notify" yaml:",omitempty"`
+	Notify        []StepNotify             `yaml:"notify,omitempty"`
+	DependsOn     interface{}              `json:"depends_on" yaml:"depends_on,omitempty"`
+	Key           string                   `yaml:"key,omitempty"`
+	Secrets       interface{}              `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+	Steps         []Step                   `yaml:"steps,omitempty"`
+}
+
+// UnmarshalJSON handles both "artifacts" and "artifact_paths" field names for backward compatibility
+// Both fields are supported by the Buildkite API; "artifact_paths" is preferred per documentation
+func (step *Step) UnmarshalJSON(data []byte) error {
+	// Check which fields are present without full unmarshaling
+	var fieldCheck map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fieldCheck); err != nil {
+		return err
+	}
+
+	_, hasArtifacts := fieldCheck["artifacts"]
+	_, hasArtifactPaths := fieldCheck["artifact_paths"]
+
+	// Validate that both fields are not specified
+	if hasArtifacts && hasArtifactPaths {
+		return errors.New("cannot specify both 'artifacts' and 'artifact_paths'; please use 'artifact_paths'")
+	}
+
+	// Use a type alias to avoid infinite recursion
+	type stepAlias Step
+
+	// Unmarshal the main struct (this will populate artifact_paths if present)
+	if err := json.Unmarshal(data, (*stepAlias)(step)); err != nil {
+		return err
+	}
+
+	// If only "artifacts" was specified, manually extract and use it
+	if hasArtifacts && !hasArtifactPaths {
+		var temp struct {
+			Artifacts []string `json:"artifacts"`
+		}
+		if err := json.Unmarshal(data, &temp); err != nil {
+			return err
+		}
+		step.ArtifactPaths = temp.Artifacts
+	}
+
+	return nil
 }
 
 // Agent is Buildkite agent definition
@@ -124,7 +163,9 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 		Interpolation: true,
 	}
 
-	_ = json.Unmarshal(data, def)
+	if err := json.Unmarshal(data, def); err != nil {
+		return err
+	}
 
 	*plugin = Plugin(*def)
 
@@ -235,7 +276,7 @@ func initializePlugin(data string) (Plugin, error) {
 
 				if err := json.Unmarshal(pluginConfig, &plugin); err != nil {
 					log.Debug(err)
-					return Plugin{}, errors.New("failed to parse plugin configuration")
+					return Plugin{}, err
 				}
 
 				return plugin, nil

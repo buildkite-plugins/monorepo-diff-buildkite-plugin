@@ -94,6 +94,10 @@ configuration:
                 type: string
             artifacts:
               type: array
+              description: Artifact paths to upload (alternative field name)
+            artifact_paths:
+              type: array
+              description: Artifact paths to upload (preferred field name)
             env:
               type: array
     wait:

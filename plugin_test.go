@@ -154,7 +154,7 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 							"queue": "queue-1",
 							"database": "postgres"
 						},
-						"artifacts": [ "artifiact-1" ],
+						"artifacts": [ "artifact-1" ],
 						"soft_fail": [{
 							"exit_status": 127
 						}]
@@ -266,9 +266,9 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 							"env3": "env-3",
 						},
 					},
-					Async:     true,
-					Agents:    map[string]string{"queue": "queue-1", "database": "postgres"},
-					Artifacts: []string{"artifiact-1"},
+					Async:         true,
+					Agents:        map[string]string{"queue": "queue-1", "database": "postgres"},
+					ArtifactPaths: []string{"artifact-1"},
 					SoftFail: []interface{}{map[string]interface{}{
 						"exit_status": float64(127),
 					}},
@@ -1220,4 +1220,66 @@ func TestPluginShouldPreserveSecretsInNestedSteps(t *testing.T) {
 	secretsArray, ok := secondStep.Secrets.([]interface{})
 	assert.True(t, ok, "second step secrets should be an array")
 	assert.Equal(t, []interface{}{"PROD_DB_HOST", "PROD_DB_PASS"}, secretsArray)
+}
+
+func TestPluginAcceptsArtifactPathsFieldName(t *testing.T) {
+	// Test that artifact_paths field name works
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo test",
+						"artifact_paths": ["logs/**/*", "coverage/**/*"]
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Step: Step{
+					Command:       "echo test",
+					ArtifactPaths: []string{"logs/**/*", "coverage/**/*"},
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestPluginRejectsBothArtifactsFields(t *testing.T) {
+	// Test that specifying both fields returns an error
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo test",
+						"artifacts": ["old.log"],
+						"artifact_paths": ["new.log"]
+					}
+				}
+			]
+		}
+	}]`
+
+	_, err := initializePlugin(param)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot specify both 'artifacts' and 'artifact_paths'")
 }
