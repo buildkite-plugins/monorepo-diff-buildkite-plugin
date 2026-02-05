@@ -90,13 +90,13 @@ steps:
                 plugins:
                   - artifacts#v1.9.4:
                       upload: "coverage/**/*"
-                  - docker-compose#v5.3.0:
+                  - docker-compose#v5.12.1:
                       run: api
             - path: services/web/
               config:
                 command: "yarn build"
                 plugins:
-                  - docker#v5.14.0:
+                  - docker#v5.13.0:
                       image: "node:20"
                       workdir: /app
 ```
@@ -122,7 +122,7 @@ steps:
                 group: docker/**
                 steps:
                   - plugins:
-                      - docker#latest:
+                      - docker#v5.13.0:
                           build: service
                           push: service
                   - command: docker/run-e2e-tests.sh
