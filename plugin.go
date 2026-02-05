@@ -397,6 +397,11 @@ func processNestedStepsEnv(steps []Step, env map[string]string) {
 		steps[i].Env, _ = parseEnv(steps[i].RawEnv)
 		steps[i].Build.Env, _ = parseEnv(steps[i].Build.RawEnv)
 
+		// Process notify for nested steps
+		if steps[i].RawNotify != nil {
+			setNotify(&steps[i].Notify, &steps[i].RawNotify)
+		}
+
 		// Append top-level env to this step
 		for key, value := range env {
 			if steps[i].Command != nil || steps[i].Commands != nil {
