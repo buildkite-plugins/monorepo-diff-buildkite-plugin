@@ -944,6 +944,43 @@ func TestPluginShouldClearRawEnvFromNestedSteps(t *testing.T) {
 	assert.Nil(t, secondStep.Build.RawEnv, "Second nested step Build.RawEnv should be nil")
 }
 
+func TestPluginShouldProcessNotifyInNestedSteps(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#v1.0.0": {
+			"watch": [{
+				"path": "foo/**",
+				"config": {
+					"group": "Foo",
+					"steps": [{
+						"command": "./scripts/a.sh",
+						"label": "Run A",
+						"notify": [{
+							"github_commit_status": {
+								"context": "buildkite/foo/a"
+							}
+						}]
+					}]
+				}
+			}]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	// Verify nested step exists
+	assert.Equal(t, 1, len(got.Watch[0].Step.Steps))
+
+	nestedStep := got.Watch[0].Step.Steps[0]
+
+	// Verify RawNotify is cleared
+	assert.Nil(t, nestedStep.RawNotify, "RawNotify should be nil after processing")
+
+	// Verify Notify is populated
+	assert.Equal(t, 1, len(nestedStep.Notify), "Notify should have 1 entry")
+	assert.Equal(t, "buildkite/foo/a", nestedStep.Notify[0].GithubStatus.Context)
+}
+
 func TestPluginShouldPreserveDependsOnString(t *testing.T) {
 	param := `[{
 		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
