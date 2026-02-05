@@ -9,6 +9,8 @@ configuration:
       type: string
     download:
       type: boolean
+    verify_checksum:
+      type: boolean
     log_level:
       type: string
     interpolation:
