@@ -72,7 +72,48 @@ This is a sub-section that provides configuration for running commands or trigge
 - [Group](https://buildkite.com/docs/pipelines/configure/step-types/group-step)
 - [Conditionals](https://buildkite.com/docs/pipelines/conditionals)
 
-:warning: This plugin may accept configurations that are not valid pipeline steps, this is a known issue to keep its code simple and flexible.
+#### Step Validation
+
+The plugin validates all step configurations before uploading the pipeline. Invalid steps are automatically skipped with a warning logged to the build output.
+
+**A valid step must have:**
+- A `command` or `commands` field (for command steps), OR
+- A `trigger` field (for trigger steps), OR
+- A `group` field with either:
+  - An action (`command`, `commands`, or `trigger`) directly on the group, OR
+  - Valid nested `steps`
+
+**Invalid configurations that will be skipped:**
+
+```yaml
+# ❌ Empty step - no action defined
+- path: "app/"
+  config:
+    label: "Deploy app"  # Only has a label, no command/trigger
+
+# ❌ Empty group - no action and no nested steps
+- path: "services/"
+  config:
+    group: "Deploy"
+    # Missing: steps array or action
+```
+
+**Valid configurations:**
+
+```yaml
+# ✅ Valid - has command
+- path: "app/"
+  config:
+    label: "Deploy app"
+    command: "echo deploying"
+
+# ✅ Valid - group with nested steps
+- path: "services/"
+  config:
+    group: "Deploy"
+    steps:
+      - command: "deploy.sh"
+```
 
 ```yaml
 steps:
@@ -89,7 +130,7 @@ steps:
             - path: docker/
               config:
                 group: docker/**
-                steps:
+                steps:  # Required: groups must have either 'steps' or an action
                   - plugins:
                       - docker#latest:
                           build: service
@@ -487,6 +528,41 @@ steps:
               config:
                 key: echo-step
                 command: "echo deploy-bar"
+```
+
+## Troubleshooting
+
+### "Skipping invalid step" warnings
+
+If you see warnings like `Skipping invalid step: empty step configuration`, check that your step configuration includes:
+
+1. For command steps: `command` or `commands` field
+2. For trigger steps: `trigger` field
+3. For group steps: `group` field with either `steps` array or an action
+
+**Common issues:**
+
+- Forgetting to add `command:` or `trigger:` inside the `config` block
+- Creating empty groups without nested steps
+- Using only metadata fields like `label`, `key`, or `env` without an action
+
+**Example of fixing an invalid configuration:**
+
+```yaml
+# ❌ Invalid - missing action
+- path: "app/"
+  config:
+    label: "Deploy app"
+    env:
+      - ENV=production
+
+# ✅ Fixed - added command
+- path: "app/"
+  config:
+    label: "Deploy app"
+    command: "deploy.sh"
+    env:
+      - ENV=production
 ```
 
 ## Compatibility
