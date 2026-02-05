@@ -72,6 +72,37 @@ This is a sub-section that provides configuration for running commands or trigge
 - [Group](https://buildkite.com/docs/pipelines/configure/step-types/group-step)
 - [Conditionals](https://buildkite.com/docs/pipelines/conditionals)
 
+#### Plugins in Step Configurations
+
+The plugin preserves `plugins:` blocks when specified in command step configurations. This allows you to use Buildkite plugins within your monorepo-watched steps.
+
+**Example**
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.8.0:
+          watch:
+            - path: services/api/
+              config:
+                command: "npm test"
+                plugins:
+                  - artifacts#v1.9.4:
+                      upload: "coverage/**/*"
+                  - docker-compose#v5.3.0:
+                      run: api
+            - path: services/web/
+              config:
+                command: "yarn build"
+                plugins:
+                  - docker#v5.14.0:
+                      image: "node:20"
+                      workdir: /app
+```
+
+When changes are detected in the watched paths, the plugin generates steps that include the specified plugins. The `plugins:` blocks are preserved exactly as configured.
+
 :warning: This plugin may accept configurations that are not valid pipeline steps, this is a known issue to keep its code simple and flexible.
 
 ```yaml
