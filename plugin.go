@@ -99,6 +99,37 @@ type Step struct {
 	Steps         []Step                   `yaml:"steps,omitempty"`
 }
 
+// isValid checks if a step has required fields (command, trigger, or group with steps)
+func (s Step) isValid() bool {
+	if s.Group != "" {
+		return s.hasValidNesting()
+	}
+	return s.hasAction()
+}
+
+// hasAction checks if a step has a command or trigger
+func (s Step) hasAction() bool {
+	return s.Command != nil || s.Commands != nil || s.Trigger != ""
+}
+
+// hasValidNesting validates group step nesting
+func (s Step) hasValidNesting() bool {
+	if s.hasAction() {
+		return true
+	}
+
+	if len(s.Steps) > 0 {
+		for _, nestedStep := range s.Steps {
+			if !nestedStep.isValid() {
+				return false
+			}
+		}
+		return true
+	}
+
+	return false
+}
+
 // UnmarshalJSON handles both "artifacts" and "artifact_paths" field names for backward compatibility
 // Both fields are supported by the Buildkite API; "artifact_paths" is preferred per documentation
 func (step *Step) UnmarshalJSON(data []byte) error {
