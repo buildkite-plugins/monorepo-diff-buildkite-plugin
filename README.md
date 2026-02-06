@@ -115,6 +115,37 @@ The plugin validates all step configurations before uploading the pipeline. Inva
       - command: "deploy.sh"
 ```
 
+#### Plugins in Step Configurations
+
+The plugin preserves `plugins:` blocks when specified in command step configurations. This allows you to use Buildkite plugins within your monorepo-watched steps.
+
+**Example**
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.8.0:
+          watch:
+            - path: services/api/
+              config:
+                command: "npm test"
+                plugins:
+                  - artifacts#v1.9.4:
+                      upload: "coverage/**/*"
+                  - docker-compose#v5.12.1:
+                      run: api
+            - path: services/web/
+              config:
+                command: "yarn build"
+                plugins:
+                  - docker#v5.13.0:
+                      image: "node:20"
+                      workdir: /app
+```
+
+When changes are detected in the watched paths, the plugin generates steps that include the specified plugins. The `plugins:` blocks are preserved exactly as configured.
+
 ```yaml
 steps:
   - label: "Triggering pipelines"
@@ -132,7 +163,7 @@ steps:
                 group: docker/**
                 steps:  # Required: groups must have either 'steps' or an action
                   - plugins:
-                      - docker#latest:
+                      - docker#v5.13.0:
                           build: service
                           push: service
                   - command: docker/run-e2e-tests.sh
