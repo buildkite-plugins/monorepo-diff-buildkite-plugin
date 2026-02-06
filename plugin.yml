@@ -16,7 +16,10 @@ configuration:
     interpolation:
       type: boolean
     env:
-      type: array
+      type: [array, object]
+      description: >
+        Environment variables. Array: ["KEY=value", "KEY"] or Map: {KEY: "value", KEY2: ~}
+        Array format: KEY-only reads from OS. Map format: use "KEY: ~" (null literal) to read from OS, "KEY: ''" for empty string.
     binary_folder:
       type: string
     notify:
@@ -86,7 +89,10 @@ configuration:
                 branch:
                   type: string
                 env:
-                  type: array
+                  type: [array, object]
+                  description: >
+                    Environment variables. Array: ["KEY=value", "KEY"] or Map: {KEY: "value", KEY2: ~}
+                    Array: KEY-only reads from OS. Map: use "KEY: ~" (null literal) to read from OS, "KEY: ''" for empty string.
             agents:
               type: object
               properties:
@@ -101,7 +107,10 @@ configuration:
               type: array
               description: Artifact paths to upload (preferred field name)
             env:
-              type: array
+              type: [array, object]
+              description: >
+                Environment variables. Array: ["KEY=value", "KEY"] or Map: {KEY: "value", KEY2: ~}
+                Array: KEY-only reads from OS. Map: use "KEY: ~" (null literal) to read from OS, "KEY: ''" for empty string.
     wait:
       type: boolean
     hooks:
