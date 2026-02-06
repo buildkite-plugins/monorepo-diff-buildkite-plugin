@@ -341,12 +341,11 @@ func TestPluginShouldOnlyFullyUnmarshallItselfAndNotOtherPlugins(t *testing.T) {
 }
 
 func TestPluginShouldErrorIfPluginConfigIsInvalid(t *testing.T) {
+	// Test that truly invalid env format (string) returns error
 	param := `[
 		{
 			"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
-				"env": {
-					"anInvalidKey": "An Invalid Value"
-				},
+				"env": "invalid-string-format",
 				"watch": [
 					{
 						"path": [
@@ -1319,4 +1318,506 @@ func TestPluginRejectsBothArtifactsFields(t *testing.T) {
 	_, err := initializePlugin(param)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot specify both 'artifacts' and 'artifact_paths'")
+}
+
+// Unit tests for parseEnv function
+
+func TestParseEnvMapStringFormat(t *testing.T) {
+	// Test direct string map with explicit values
+	input := map[string]string{
+		"NODE_ENV": "production",
+		"API_URL":  "https://api.example.com",
+		"PORT":     "8080",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "production", result["NODE_ENV"])
+	assert.Equal(t, "https://api.example.com", result["API_URL"])
+	assert.Equal(t, "8080", result["PORT"])
+	assert.Len(t, result, 3)
+}
+
+func TestParseEnvMapOSEnvReading(t *testing.T) {
+	// Test only null values read from OS env
+	t.Setenv("TEST_VAR", "from-env")
+
+	input := map[string]interface{}{
+		"TEST_VAR": nil, // Only null reads from OS environment
+		"EXPLICIT": "explicit-value",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "from-env", result["TEST_VAR"])
+	assert.Equal(t, "explicit-value", result["EXPLICIT"])
+}
+
+func TestParseEnvMapEmptyStringPreserved(t *testing.T) {
+	// Test empty strings are preserved as literal values, not read from env
+	t.Setenv("TEST_VAR", "should-not-be-used")
+
+	input := map[string]interface{}{
+		"TEST_VAR":    "", // Empty string should be preserved
+		"ANOTHER_VAR": "",
+		"EXPLICIT":    "value",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "", result["TEST_VAR"])        // Empty string preserved
+	assert.Equal(t, "", result["ANOTHER_VAR"])     // Empty string preserved
+	assert.Equal(t, "value", result["EXPLICIT"])
+}
+
+func TestParseEnvMapMixedTypes(t *testing.T) {
+	// Test numbers, booleans, floats are converted to strings
+	input := map[string]interface{}{
+		"PORT":       8080,
+		"MAX_SIZE":   1.5,
+		"DEBUG":      true,
+		"ENABLED":    false,
+		"STRING_VAL": "text",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "8080", result["PORT"])
+	assert.Equal(t, "1.5", result["MAX_SIZE"])
+	assert.Equal(t, "true", result["DEBUG"])
+	assert.Equal(t, "false", result["ENABLED"])
+	assert.Equal(t, "text", result["STRING_VAL"])
+}
+
+func TestParseEnvMapWhitespacePreservation(t *testing.T) {
+	// Test leading/trailing spaces in values preserved, keys trimmed
+	input := map[string]string{
+		"  TRIMMED_KEY  ": "  preserved value  ",
+		"NORMAL":          "value",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "  preserved value  ", result["TRIMMED_KEY"])
+	assert.Equal(t, "value", result["NORMAL"])
+	assert.Len(t, result, 2)
+}
+
+func TestParseEnvMapEmptyKeys(t *testing.T) {
+	// Test empty/whitespace-only keys are skipped
+	input := map[string]string{
+		"":      "value1",
+		"  ":    "value2",
+		"VALID": "value3",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "value3", result["VALID"])
+	assert.Len(t, result, 1)
+}
+
+func TestParseEnvArrayFormatRegression(t *testing.T) {
+	// Test existing array format behavior unchanged
+	input := []interface{}{
+		"KEY1=value1",
+		"KEY2=value2",
+		"KEY3=value with spaces",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "value1", result["KEY1"])
+	assert.Equal(t, "value2", result["KEY2"])
+	assert.Equal(t, "value with spaces", result["KEY3"])
+}
+
+func TestParseEnvArrayOSEnvReading(t *testing.T) {
+	// Test key-only entries read from OS env
+	t.Setenv("FROM_ENV", "env-value")
+
+	input := []interface{}{
+		"FROM_ENV",
+		"EXPLICIT=explicit-value",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "env-value", result["FROM_ENV"])
+	assert.Equal(t, "explicit-value", result["EXPLICIT"])
+}
+
+func TestParseEnvArrayEqualsInValues(t *testing.T) {
+	// Test complex values with equals signs
+	input := []interface{}{
+		"BUILD_ARGS=--arg1=val1 --arg2=val2",
+		"URL=https://example.com?key=value",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "--arg1=val1 --arg2=val2", result["BUILD_ARGS"])
+	assert.Equal(t, "https://example.com?key=value", result["URL"])
+}
+
+func TestParseEnvArrayWhitespaceTrimming(t *testing.T) {
+	// Test keys and values are trimmed in array format
+	input := []interface{}{
+		"  KEY1  =  value1  ",
+		"  KEY2=value2",
+		"KEY3  =  value3  ",
+	}
+
+	result, err := parseEnv(input)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "value1", result["KEY1"])
+	assert.Equal(t, "value2", result["KEY2"])
+	assert.Equal(t, "value3", result["KEY3"])
+}
+
+func TestParseEnvErrorInvalidType(t *testing.T) {
+	// Test string or number input returns error
+	tests := []struct {
+		name  string
+		input interface{}
+	}{
+		{"string", "invalid"},
+		{"number", 123},
+		{"boolean", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseEnv(tt.input)
+			assert.Error(t, err)
+			assert.Nil(t, result)
+			assert.Contains(t, err.Error(), "env configuration must be")
+		})
+	}
+}
+
+func TestParseEnvNilInput(t *testing.T) {
+	// Test nil input returns nil map without error
+	result, err := parseEnv(nil)
+
+	assert.NoError(t, err)
+	assert.Nil(t, result)
+}
+
+// Integration tests for map env format
+
+func TestPluginWithMapEnv(t *testing.T) {
+	// Test plugin-level map format
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"env": {
+				"PLUGIN_VAR": "plugin-value",
+				"PORT": 8080,
+				"DEBUG": true
+			},
+			"watch": [
+				{
+					"path": "services/",
+					"config": {
+						"command": "echo test"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "plugin-value", got.Env["PLUGIN_VAR"])
+	assert.Equal(t, "8080", got.Env["PORT"])
+	assert.Equal(t, "true", got.Env["DEBUG"])
+}
+
+func TestStepWithMapEnv(t *testing.T) {
+	// Test step-level map format (command step)
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "services/",
+					"config": {
+						"command": "npm test",
+						"env": {
+							"NODE_ENV": "test",
+							"MAX_WORKERS": 4,
+							"COVERAGE": true
+						}
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+
+	assert.NoError(t, err)
+	assert.Len(t, got.Watch, 1)
+	assert.Equal(t, "test", got.Watch[0].Step.Env["NODE_ENV"])
+	assert.Equal(t, "4", got.Watch[0].Step.Env["MAX_WORKERS"])
+	assert.Equal(t, "true", got.Watch[0].Step.Env["COVERAGE"])
+}
+
+func TestBuildWithMapEnv(t *testing.T) {
+	// Test build-level map format (trigger step)
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "services/",
+					"config": {
+						"trigger": "downstream-pipeline",
+						"build": {
+							"env": {
+								"DEPLOY_ENV": "staging",
+								"REPLICAS": 3
+							}
+						}
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+
+	assert.NoError(t, err)
+	assert.Len(t, got.Watch, 1)
+	assert.Equal(t, "staging", got.Watch[0].Step.Build.Env["DEPLOY_ENV"])
+	assert.Equal(t, "3", got.Watch[0].Step.Build.Env["REPLICAS"])
+}
+
+func TestNestedStepsWithMapEnv(t *testing.T) {
+	// Test nested steps with map format
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "services/",
+					"config": {
+						"group": "Test Group",
+						"steps": [
+							{
+								"command": "test1",
+								"env": {
+									"TEST": "value1"
+								}
+							},
+							{
+								"command": "test2",
+								"env": {
+									"TEST": "value2"
+								}
+							}
+						]
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+
+	assert.NoError(t, err)
+	assert.Len(t, got.Watch, 1)
+	assert.Len(t, got.Watch[0].Step.Steps, 2)
+	assert.Equal(t, "value1", got.Watch[0].Step.Steps[0].Env["TEST"])
+	assert.Equal(t, "value2", got.Watch[0].Step.Steps[1].Env["TEST"])
+}
+
+func TestMixedEnvFormats(t *testing.T) {
+	// Test array at plugin level, map at step level
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"env": [
+				"PLUGIN_VAR=plugin-value",
+				"GLOBAL_VAR"
+			],
+			"watch": [
+				{
+					"path": "services/",
+					"config": {
+						"command": "echo test",
+						"env": {
+							"STEP_VAR": "step-value",
+							"PORT": 8080
+						}
+					}
+				}
+			]
+		}
+	}]`
+
+	t.Setenv("GLOBAL_VAR", "from-env")
+
+	got, err := initializePlugin(param)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "plugin-value", got.Env["PLUGIN_VAR"])
+	assert.Equal(t, "from-env", got.Env["GLOBAL_VAR"])
+	assert.Equal(t, "step-value", got.Watch[0].Step.Env["STEP_VAR"])
+	assert.Equal(t, "8080", got.Watch[0].Step.Env["PORT"])
+}
+
+func TestMapEnvWithOSEnvReading(t *testing.T) {
+	// Test map format: null reads from OS, empty string is literal
+	t.Setenv("AWS_REGION", "us-west-2")
+	t.Setenv("EMPTY_VAR", "should-not-be-used")
+
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"env": {
+				"AWS_REGION": null,
+				"EMPTY_VAR": "",
+				"EXPLICIT": "explicit-value"
+			},
+			"watch": [
+				{
+					"path": "services/",
+					"config": {
+						"command": "echo test"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "us-west-2", got.Env["AWS_REGION"])  // Null reads from OS env
+	assert.Equal(t, "", got.Env["EMPTY_VAR"])            // Empty string is literal
+	assert.Equal(t, "explicit-value", got.Env["EXPLICIT"])
+}
+
+func TestStepIsValid_EmptyStep(t *testing.T) {
+	step := Step{}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_OnlyLabel(t *testing.T) {
+	step := Step{Label: "test step"}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_WithCommand(t *testing.T) {
+	step := Step{Command: "echo valid"}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_WithCommands(t *testing.T) {
+	step := Step{Commands: []string{"echo valid", "echo also valid"}}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_WithTrigger(t *testing.T) {
+	step := Step{Trigger: "valid-trigger"}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_GroupWithCommand(t *testing.T) {
+	step := Step{
+		Group:   "deploy",
+		Command: "echo deploy",
+	}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_GroupWithSteps(t *testing.T) {
+	step := Step{
+		Group: "tests",
+		Steps: []Step{
+			{Command: "echo test 1"},
+			{Command: "echo test 2"},
+		},
+	}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_EmptyGroup(t *testing.T) {
+	step := Step{
+		Group: "empty-group",
+		Steps: []Step{},
+	}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_GroupWithInvalidSteps(t *testing.T) {
+	step := Step{
+		Group: "invalid-group",
+		Steps: []Step{
+			{Label: "no command"},
+			{},
+		},
+	}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_GroupWithMixedSteps(t *testing.T) {
+	step := Step{
+		Group: "mixed-group",
+		Steps: []Step{
+			{Command: "echo valid"},
+			{Label: "invalid - no command"},
+		},
+	}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_DeeplyNested(t *testing.T) {
+	step := Step{
+		Group: "outer",
+		Steps: []Step{
+			{
+				Group: "inner",
+				Steps: []Step{
+					{Command: "echo deeply nested"},
+				},
+			},
+		},
+	}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_DeeplyNestedInvalid(t *testing.T) {
+	step := Step{
+		Group: "outer",
+		Steps: []Step{
+			{
+				Group: "inner",
+				Steps: []Step{
+					{Label: "no command"},
+				},
+			},
+		},
+	}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_OnlyMetadata(t *testing.T) {
+	step := Step{
+		Label: "test",
+		Env: map[string]string{
+			"KEY": "value",
+		},
+		Agents: Agent{
+			"queue": "default",
+		},
+	}
+	assert.False(t, step.isValid())
 }

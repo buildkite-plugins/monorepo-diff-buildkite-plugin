@@ -858,3 +858,204 @@ func TestGeneratePipelineWithNotifyInGroup(t *testing.T) {
 	assert.Contains(t, output, "github_commit_status:")
 	assert.Contains(t, output, "context: buildkite/test/status")
 }
+
+func TestFilterValidSteps_AllValid(t *testing.T) {
+	steps := []Step{
+		{Command: "echo valid 1"},
+		{Trigger: "valid-trigger"},
+		{Commands: []string{"echo valid 2"}},
+	}
+
+	valid, invalid := filterValidSteps(steps)
+
+	assert.Len(t, valid, 3)
+	assert.Len(t, invalid, 0)
+}
+
+func TestFilterValidSteps_AllInvalid(t *testing.T) {
+	steps := []Step{
+		{},
+		{Label: "no command"},
+		{Env: map[string]string{"KEY": "value"}},
+	}
+
+	valid, invalid := filterValidSteps(steps)
+
+	assert.Len(t, valid, 0)
+	assert.Len(t, invalid, 3)
+}
+
+func TestFilterValidSteps_MixedValidInvalid(t *testing.T) {
+	steps := []Step{
+		{Command: "echo valid"},
+		{},
+		{Trigger: "valid-trigger"},
+		{Label: "invalid - no command/trigger"},
+		{Commands: []string{"echo also valid"}},
+	}
+
+	valid, invalid := filterValidSteps(steps)
+
+	assert.Len(t, valid, 3)
+	assert.Len(t, invalid, 2)
+	assert.Equal(t, "echo valid", valid[0].Command)
+	assert.Equal(t, "valid-trigger", valid[1].Trigger)
+	assert.NotNil(t, valid[2].Commands)
+}
+
+func TestFilterValidSteps_GroupSteps(t *testing.T) {
+	steps := []Step{
+		{
+			Group: "valid-group",
+			Steps: []Step{
+				{Command: "echo test"},
+			},
+		},
+		{
+			Group: "empty-group",
+			Steps: []Step{},
+		},
+		{
+			Group: "invalid-nested-group",
+			Steps: []Step{
+				{Label: "no command"},
+			},
+		},
+	}
+
+	valid, invalid := filterValidSteps(steps)
+
+	assert.Len(t, valid, 1)
+	assert.Len(t, invalid, 2)
+	assert.Equal(t, "valid-group", valid[0].Group)
+}
+
+func TestStepsToTrigger_Issue83(t *testing.T) {
+	// Integration test for issue #83 - empty step configuration
+	watch := []WatchConfig{
+		{
+			Paths: []string{"some-path/**"},
+			Step:  Step{}, // Empty step - should be filtered
+		},
+		{
+			Paths: []string{"other-path/**"},
+			Step:  Step{Command: "echo valid"},
+		},
+	}
+
+	changedFiles := []string{
+		"some-path/file.txt",
+		"other-path/file.txt",
+	}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 1)
+	assert.Equal(t, "echo valid", steps[0].Command)
+}
+
+func TestStepsToTrigger_DefaultWithEmptyStep(t *testing.T) {
+	// Test that empty default step is filtered
+	watch := []WatchConfig{
+		{
+			Paths: []string{"app/"},
+			Step:  Step{Command: "echo app"},
+		},
+		{
+			Default: struct{}{},
+			Step:    Step{}, // Empty default - should be filtered
+		},
+	}
+
+	changedFiles := []string{"unmatched/file.txt"}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 0)
+}
+
+func TestStepsToTrigger_AllStepsInvalid(t *testing.T) {
+	// Test that when all matched steps are invalid, empty array is returned
+	watch := []WatchConfig{
+		{
+			Paths: []string{"path1/"},
+			Step:  Step{},
+		},
+		{
+			Paths: []string{"path2/"},
+			Step:  Step{Label: "no command"},
+		},
+	}
+
+	changedFiles := []string{"path1/file.txt", "path2/file.txt"}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 0)
+}
+
+func TestStepsToTrigger_EmptyGroupInConfig(t *testing.T) {
+	// Test that empty group steps are filtered
+	watch := []WatchConfig{
+		{
+			Paths: []string{"services/"},
+			Step: Step{
+				Group: "deploy",
+				Steps: []Step{}, // Empty group
+			},
+		},
+	}
+
+	changedFiles := []string{"services/main.go"}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 0)
+}
+
+func TestStepsToTrigger_ValidAndInvalidStepsMixed(t *testing.T) {
+	// Test that valid steps are kept while invalid are filtered
+	watch := []WatchConfig{
+		{
+			Paths: []string{"app/"},
+			Step:  Step{Command: "echo valid app"},
+		},
+		{
+			Paths: []string{"tests/"},
+			Step:  Step{}, // Invalid
+		},
+		{
+			Paths: []string{"deploy/"},
+			Step:  Step{Trigger: "deploy-pipeline"},
+		},
+	}
+
+	changedFiles := []string{
+		"app/main.go",
+		"tests/test.go",
+		"deploy/script.sh",
+	}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 2)
+
+	// Verify we got the valid steps
+	hasAppStep := false
+	hasDeployStep := false
+	for _, step := range steps {
+		if step.Command == "echo valid app" {
+			hasAppStep = true
+		}
+		if step.Trigger == "deploy-pipeline" {
+			hasDeployStep = true
+		}
+	}
+	assert.True(t, hasAppStep)
+	assert.True(t, hasDeployStep)
+}

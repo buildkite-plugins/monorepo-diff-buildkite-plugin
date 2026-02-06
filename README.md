@@ -72,7 +72,79 @@ This is a sub-section that provides configuration for running commands or trigge
 - [Group](https://buildkite.com/docs/pipelines/configure/step-types/group-step)
 - [Conditionals](https://buildkite.com/docs/pipelines/conditionals)
 
-:warning: This plugin may accept configurations that are not valid pipeline steps, this is a known issue to keep its code simple and flexible.
+#### Step Validation
+
+The plugin validates all step configurations before uploading the pipeline. Invalid steps are automatically skipped with a warning logged to the build output.
+
+**A valid step must have:**
+- A `command` or `commands` field (for command steps), OR
+- A `trigger` field (for trigger steps), OR
+- A `group` field with either:
+  - An action (`command`, `commands`, or `trigger`) directly on the group, OR
+  - Valid nested `steps`
+
+**Invalid configurations that will be skipped:**
+
+```yaml
+# ❌ Empty step - no action defined
+- path: "app/"
+  config:
+    label: "Deploy app"  # Only has a label, no command/trigger
+
+# ❌ Empty group - no action and no nested steps
+- path: "services/"
+  config:
+    group: "Deploy"
+    # Missing: steps array or action
+```
+
+**Valid configurations:**
+
+```yaml
+# ✅ Valid - has command
+- path: "app/"
+  config:
+    label: "Deploy app"
+    command: "echo deploying"
+
+# ✅ Valid - group with nested steps
+- path: "services/"
+  config:
+    group: "Deploy"
+    steps:
+      - command: "deploy.sh"
+```
+
+#### Plugins in Step Configurations
+
+The plugin preserves `plugins:` blocks when specified in command step configurations. This allows you to use Buildkite plugins within your monorepo-watched steps.
+
+**Example**
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.8.0:
+          watch:
+            - path: services/api/
+              config:
+                command: "npm test"
+                plugins:
+                  - artifacts#v1.9.4:
+                      upload: "coverage/**/*"
+                  - docker-compose#v5.12.1:
+                      run: api
+            - path: services/web/
+              config:
+                command: "yarn build"
+                plugins:
+                  - docker#v5.13.0:
+                      image: "node:20"
+                      workdir: /app
+```
+
+When changes are detected in the watched paths, the plugin generates steps that include the specified plugins. The `plugins:` blocks are preserved exactly as configured.
 
 ```yaml
 steps:
@@ -89,9 +161,9 @@ steps:
             - path: docker/
               config:
                 group: docker/**
-                steps:
+                steps:  # Required: groups must have either 'steps' or an action
                   - plugins:
-                      - docker#latest:
+                      - docker#v5.13.0:
                           build: service
                           push: service
                   - command: docker/run-e2e-tests.sh
@@ -260,9 +332,88 @@ steps:
                 build:
                   message: "Deploying foo service"
                   env:
-                    - HELLO=123
-                    - AWS_REGION
+                    HELLO: 123
+                    AWS_REGION: ~  # Null literal reads from $AWS_REGION
 ```
+
+### Environment Variables
+
+Environment variables can be specified in two formats. Both formats are fully supported.
+
+#### Map Format (Recommended)
+
+The map format provides clean, readable syntax:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.8.0:
+          env:
+            NODE_ENV: production
+            API_URL: https://api.example.com
+            PORT: 8080
+            DEBUG: false
+            AWS_REGION: ~         # Null literal reads from $AWS_REGION
+            EMPTY_STRING: ""      # Empty string sets to literal ""
+          watch:
+            - path: "services/"
+              config:
+                command: "npm test"
+                env:
+                  TEST_ENV: integration
+                  MAX_WORKERS: 4
+```
+
+Map format features:
+- Clean YAML syntax using key-value pairs
+- Supports non-string values (numbers, booleans) which are converted to strings automatically
+- Null values read from OS environment: use `KEY: ~` (recommended YAML null literal)
+- The explicit `~` ensures nothing is accidentally added during pipeline processing
+- Note: Unlike array format, you cannot use just `KEY` alone - you must use a null value
+- Empty string (`""`) is treated as a literal empty string value
+- Whitespace in values is preserved
+- Recommended for new configurations
+
+#### Array Format (Fully Supported)
+
+The array format uses key=value syntax:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.8.0:
+          env:
+            - NODE_ENV=production
+            - API_URL=https://api.example.com
+            - AWS_REGION          # Key-only reads from $AWS_REGION
+          watch:
+            - path: "services/"
+              config:
+                command: "npm test"
+                env:
+                  - TEST_ENV=integration
+```
+
+Array format features:
+- Key-only entries (e.g., `AWS_REGION`) read from OS environment variables
+- Supports values with equals signs: `BUILD_ARGS=--arg1=val1`
+- Whitespace trimmed from keys and values automatically
+- Fully supported alongside map format
+
+#### Format Comparison
+
+| Feature | Map Format | Array Format |
+|---------|-----------|--------------|
+| Syntax | `KEY: value` | `KEY=value` |
+| OS env reading | Null literal (`KEY: ~`) | Key-only entries (`KEY`) |
+| Empty string | `KEY: ""` sets to `""` | `KEY=` sets to `""` |
+| Type support | Numbers, booleans | Strings only |
+| Whitespace | Preserved in values | Trimmed |
+| Readability | High | Medium |
+
+**Note:** The format is determined by YAML structure - you cannot mix array and map syntax at the same level. However, you can use different formats at different levels (e.g., map format at plugin level, array format at step level).
 
 ### `log_level` (optional)
 
@@ -308,6 +459,34 @@ steps:
 ### Download Retry Behavior
 
 The plugin automatically retries binary downloads up to 3 times with a 5-second delay between attempts. This handles transient network issues when downloading from GitHub.
+
+### `verify_checksum` (optional)
+
+Default: `false`
+
+Enable SHA256 checksum verification for downloaded binaries to enhance security. When enabled, the plugin verifies checksums against those published in the GitHub release, providing protection against compromised artifacts, network attacks, and binary tampering.
+
+Checksum verification is performed for:
+- Newly downloaded binaries (fails and deletes binary on mismatch)
+- Cached binaries before reuse (automatically re-downloads on mismatch)
+- Pre-installed binaries when `download: false` (best-effort, non-blocking)
+
+To enable checksum verification:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.8.0:
+          verify_checksum: true  # Recommended for enhanced security
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "foo-service/"
+              config:
+                trigger: "deploy-foo-service"
+```
+
+If checksums are unavailable for a release or the SHA256 command is not found on the system, the plugin will warn but continue execution (graceful degradation).
 
 ### `hooks` (optional)
 
@@ -413,7 +592,7 @@ steps:
           diff: "git diff --name-only $(head -n 1 last_successful_build)"
           interpolation: false
           env:
-            - env1=env-1 # this will be appended to all env configuration
+            env1: env-1  # this will be appended to all env configuration
           hooks:
             - command: "echo $(git rev-parse HEAD) > last_successful_build"
           watch:
@@ -444,7 +623,7 @@ steps:
                 artifacts:
                   - "logs/*"
                 env:
-                  - FOO=bar
+                  FOO: bar
 
           wait: true
 ```
@@ -487,6 +666,41 @@ steps:
               config:
                 key: echo-step
                 command: "echo deploy-bar"
+```
+
+## Troubleshooting
+
+### "Skipping invalid step" warnings
+
+If you see warnings like `Skipping invalid step: empty step configuration`, check that your step configuration includes:
+
+1. For command steps: `command` or `commands` field
+2. For trigger steps: `trigger` field
+3. For group steps: `group` field with either `steps` array or an action
+
+**Common issues:**
+
+- Forgetting to add `command:` or `trigger:` inside the `config` block
+- Creating empty groups without nested steps
+- Using only metadata fields like `label`, `key`, or `env` without an action
+
+**Example of fixing an invalid configuration:**
+
+```yaml
+# ❌ Invalid - missing action
+- path: "app/"
+  config:
+    label: "Deploy app"
+    env:
+      - ENV=production
+
+# ✅ Fixed - added command
+- path: "app/"
+  config:
+    label: "Deploy app"
+    command: "deploy.sh"
+    env:
+      - ENV=production
 ```
 
 ## Compatibility

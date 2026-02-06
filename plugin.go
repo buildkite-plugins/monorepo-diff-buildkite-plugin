@@ -99,6 +99,37 @@ type Step struct {
 	Steps         []Step                   `yaml:"steps,omitempty"`
 }
 
+// isValid checks if a step has required fields (command, trigger, or group with steps)
+func (s Step) isValid() bool {
+	if s.Group != "" {
+		return s.hasValidNesting()
+	}
+	return s.hasAction()
+}
+
+// hasAction checks if a step has a command or trigger
+func (s Step) hasAction() bool {
+	return s.Command != nil || s.Commands != nil || s.Trigger != ""
+}
+
+// hasValidNesting validates group step nesting
+func (s Step) hasValidNesting() bool {
+	if s.hasAction() {
+		return true
+	}
+
+	if len(s.Steps) > 0 {
+		for _, nestedStep := range s.Steps {
+			if !nestedStep.isValid() {
+				return false
+			}
+		}
+		return true
+	}
+
+	return false
+}
+
 // UnmarshalJSON handles both "artifacts" and "artifact_paths" field names for backward compatibility
 // Both fields are supported by the Buildkite API; "artifact_paths" is preferred per documentation
 func (step *Step) UnmarshalJSON(data []byte) error {
@@ -478,32 +509,79 @@ func appendMetadata(watch *WatchConfig, metadata map[string]string) {
 	}
 }
 
-// parse env in format from env=env-value to map[env] = env-value
+// parseEnv converts env configuration from various formats to map[string]string.
+// Supports two formats:
+//   - Array format: ["KEY=value", "KEY2"] - existing format, KEY2 reads from OS env
+//   - Map format: {"KEY": "value", "KEY2": nil} - new format, only nil reads from OS env
 func parseEnv(raw interface{}) (map[string]string, error) {
 	if raw == nil {
 		return nil, nil
 	}
 
-	if _, ok := raw.([]interface{}); !ok {
-		return nil, errors.New("failed to parse plugin configuration")
-	}
-
-	result := make(map[string]string)
-	for _, v := range raw.([]interface{}) {
-		split := strings.SplitN(v.(string), "=", 2)
-		key := strings.TrimSpace(split[0])
-
-		// only key exists. set value from env
-		if len(key) > 0 && len(split) == 1 {
-			result[key] = env(key, "")
+	switch v := raw.(type) {
+	case map[string]string:
+		// Direct string map - all values are literal (including empty strings)
+		result := make(map[string]string, len(v))
+		for k, val := range v {
+			key := strings.TrimSpace(k)
+			if key == "" {
+				continue
+			}
+			// Preserve all values including empty strings
+			result[key] = val
 		}
+		return result, nil
 
-		if len(split) == 2 {
-			result[key] = strings.TrimSpace(split[1])
+	case map[string]interface{}:
+		// Generic map - only nil reads from OS environment
+		result := make(map[string]string, len(v))
+		for k, val := range v {
+			key := strings.TrimSpace(k)
+			if key == "" {
+				continue
+			}
+			// Only null values read from OS environment
+			if val == nil {
+				result[key] = env(key, "")
+			} else {
+				// Convert to string, preserving empty strings
+				result[key] = fmt.Sprintf("%v", val)
+			}
 		}
-	}
+		return result, nil
 
-	return result, nil
+	case []interface{}:
+		// Array format - preserve existing behavior exactly
+		result := make(map[string]string)
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				continue
+			}
+
+			split := strings.SplitN(str, "=", 2)
+			key := strings.TrimSpace(split[0])
+
+			if key == "" {
+				continue
+			}
+
+			// Only key exists - read from OS environment
+			if len(split) == 1 {
+				result[key] = env(key, "")
+				continue
+			}
+
+			// Key=value - trim both (backwards compatibility)
+			if len(split) == 2 {
+				result[key] = strings.TrimSpace(split[1])
+			}
+		}
+		return result, nil
+
+	default:
+		return nil, errors.New("env configuration must be an array of strings (e.g., ['KEY=value']) or a map (e.g., {KEY: 'value'})")
+	}
 }
 
 // parse metadata in format from key:value to map[key] = value
