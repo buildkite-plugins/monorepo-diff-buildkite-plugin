@@ -943,6 +943,43 @@ func TestPluginShouldClearRawEnvFromNestedSteps(t *testing.T) {
 	assert.Nil(t, secondStep.Build.RawEnv, "Second nested step Build.RawEnv should be nil")
 }
 
+func TestPluginShouldProcessNotifyInNestedSteps(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#v1.0.0": {
+			"watch": [{
+				"path": "foo/**",
+				"config": {
+					"group": "Foo",
+					"steps": [{
+						"command": "./scripts/a.sh",
+						"label": "Run A",
+						"notify": [{
+							"github_commit_status": {
+								"context": "buildkite/foo/a"
+							}
+						}]
+					}]
+				}
+			}]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	// Verify nested step exists
+	assert.Equal(t, 1, len(got.Watch[0].Step.Steps))
+
+	nestedStep := got.Watch[0].Step.Steps[0]
+
+	// Verify RawNotify is cleared
+	assert.Nil(t, nestedStep.RawNotify, "RawNotify should be nil after processing")
+
+	// Verify Notify is populated
+	assert.Equal(t, 1, len(nestedStep.Notify), "Notify should have 1 entry")
+	assert.Equal(t, "buildkite/foo/a", nestedStep.Notify[0].GithubStatus.Context)
+}
+
 func TestPluginShouldPreserveDependsOnString(t *testing.T) {
 	param := `[{
 		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
@@ -1331,8 +1368,8 @@ func TestParseEnvMapEmptyStringPreserved(t *testing.T) {
 	result, err := parseEnv(input)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "", result["TEST_VAR"])        // Empty string preserved
-	assert.Equal(t, "", result["ANOTHER_VAR"])     // Empty string preserved
+	assert.Equal(t, "", result["TEST_VAR"])    // Empty string preserved
+	assert.Equal(t, "", result["ANOTHER_VAR"]) // Empty string preserved
 	assert.Equal(t, "value", result["EXPLICIT"])
 }
 
@@ -1663,8 +1700,8 @@ func TestMapEnvWithOSEnvReading(t *testing.T) {
 	got, err := initializePlugin(param)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "us-west-2", got.Env["AWS_REGION"])  // Null reads from OS env
-	assert.Equal(t, "", got.Env["EMPTY_VAR"])            // Empty string is literal
+	assert.Equal(t, "us-west-2", got.Env["AWS_REGION"]) // Null reads from OS env
+	assert.Equal(t, "", got.Env["EMPTY_VAR"])           // Empty string is literal
 	assert.Equal(t, "explicit-value", got.Env["EXPLICIT"])
 }
 

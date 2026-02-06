@@ -826,6 +826,39 @@ func TestGeneratePipelineWithSecretsInGroup(t *testing.T) {
 	assert.Contains(t, string(got), "- PROD_DB_PASS")
 }
 
+func TestGeneratePipelineWithNotifyInGroup(t *testing.T) {
+	steps := []Step{{
+		Group: "Test Group",
+		Steps: []Step{{
+			Label:   "Run Tests",
+			Command: "echo 'test'",
+			Notify: []StepNotify{{
+				GithubStatus: GithubStatusNotification{
+					Context: "buildkite/test/status",
+				},
+			}},
+		}},
+	}}
+
+	plugin := Plugin{}
+
+	tmp, hasPipeline, err := generatePipeline(steps, plugin)
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+
+	output := string(content)
+
+	// Verify correct notify syntax (not rawnotify)
+	assert.Contains(t, output, "notify:")
+	assert.NotContains(t, output, "rawnotify")
+	assert.Contains(t, output, "github_commit_status:")
+	assert.Contains(t, output, "context: buildkite/test/status")
+}
+
 func TestFilterValidSteps_AllValid(t *testing.T) {
 	steps := []Step{
 		{Command: "echo valid 1"},

@@ -421,12 +421,17 @@ func setBuild(build *Build) {
 	}
 }
 
-// processNestedStepsEnv recursively processes environment variables for nested steps
-func processNestedStepsEnv(steps []Step, env map[string]string) {
+// processNestedSteps recursively processes nested steps, handling environment variables and notify configurations
+func processNestedSteps(steps []Step, env map[string]string) {
 	for i := range steps {
 		// Parse the step's own env
 		steps[i].Env, _ = parseEnv(steps[i].RawEnv)
 		steps[i].Build.Env, _ = parseEnv(steps[i].Build.RawEnv)
+
+		// Process notify for nested steps
+		if steps[i].RawNotify != nil {
+			setNotify(&steps[i].Notify, &steps[i].RawNotify)
+		}
 
 		// Append top-level env to this step
 		for key, value := range env {
@@ -449,7 +454,7 @@ func processNestedStepsEnv(steps []Step, env map[string]string) {
 
 		// Recursively process any nested steps
 		if len(steps[i].Steps) > 0 {
-			processNestedStepsEnv(steps[i].Steps, env)
+			processNestedSteps(steps[i].Steps, env)
 		}
 	}
 }
@@ -480,9 +485,9 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 
 	watch.Step.RawEnv = nil
 	watch.Step.Build.RawEnv = nil
-	// Process nested steps' environment variables
+	// Process nested steps
 	if len(watch.Step.Steps) > 0 {
-		processNestedStepsEnv(watch.Step.Steps, env)
+		processNestedSteps(watch.Step.Steps, env)
 	}
 	watch.RawPath = nil
 	watch.RawSkipPath = nil
