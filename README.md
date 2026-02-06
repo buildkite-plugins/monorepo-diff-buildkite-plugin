@@ -45,7 +45,7 @@ For example, in the following configuration:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "**/*"
@@ -125,7 +125,7 @@ The plugin preserves `plugins:` blocks when specified in command step configurat
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           watch:
             - path: services/api/
               config:
@@ -150,7 +150,7 @@ When changes are detected in the watched paths, the plugin generates steps that 
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           watch:
             - path: app/
               config:
@@ -181,7 +181,7 @@ steps:
 steps:
   - label: "Triggering pipelines with plugin"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           watch:
             - path: test/.buildkite/
               config: # Required [trigger step configuration]
@@ -210,7 +210,7 @@ The plugin supports conditional execution of pipeline steps using the `if` key, 
 steps:
   - label: "Triggering pipelines with plugin"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: git diff --name-only HEAD~1
           watch:
             - path: services/api
@@ -273,7 +273,7 @@ git diff --name-only "$LATEST_TAG"
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
@@ -300,7 +300,7 @@ A default `config` to run if no paths are matched, the `config` key is not requi
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
@@ -322,7 +322,7 @@ The object values provided in this configuration will be appended to `env` prope
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "foo-service/"
@@ -348,7 +348,7 @@ The map format provides clean, readable syntax:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           env:
             NODE_ENV: production
             API_URL: https://api.example.com
@@ -383,7 +383,7 @@ The array format uses key=value syntax:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           env:
             - NODE_ENV=production
             - API_URL=https://api.example.com
@@ -423,7 +423,7 @@ Add `log_level` property to set the log level. Supported log levels are `debug` 
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only HEAD~1"
           log_level: "debug" # defaults to "info"
           watch:
@@ -447,7 +447,7 @@ This option is useful for:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           download: false
           diff: "git diff --name-only HEAD~1"
           watch:
@@ -477,7 +477,7 @@ To enable checksum verification:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           verify_checksum: true  # Recommended for enhanced security
           diff: "git diff --name-only HEAD~1"
           watch:
@@ -512,7 +512,7 @@ Add `key` to set the step or group key.
 steps:
   - label: "Setting Key"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
@@ -531,7 +531,7 @@ Add `secrets` to inject [Buildkite Secrets](https://buildkite.com/docs/pipelines
 steps:
   - label: "Deploy with secrets"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "service/"
@@ -548,7 +548,7 @@ steps:
 steps:
   - label: "Deploy with secrets"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "service/"
@@ -565,7 +565,7 @@ Secrets also work within grouped steps:
 steps:
   - label: "Deploy services"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "services/"
@@ -588,7 +588,7 @@ steps:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           diff: "git diff --name-only $(head -n 1 last_successful_build)"
           interpolation: false
           env:
@@ -659,7 +659,7 @@ This is the filesystem folder where the Go binary will be kept.
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.8.0:
+      - monorepo-diff#v1.9.0:
           binary_folder: "/var/buildkite-agent"
           watch:
             - path: "bar-service/"
