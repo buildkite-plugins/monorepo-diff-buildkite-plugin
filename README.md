@@ -350,6 +350,34 @@ steps:
 
 The plugin automatically retries binary downloads up to 3 times with a 5-second delay between attempts. This handles transient network issues when downloading from GitHub.
 
+### `verify_checksum` (optional)
+
+Default: `false`
+
+Enable SHA256 checksum verification for downloaded binaries to enhance security. When enabled, the plugin verifies checksums against those published in the GitHub release, providing protection against compromised artifacts, network attacks, and binary tampering.
+
+Checksum verification is performed for:
+- Newly downloaded binaries (fails and deletes binary on mismatch)
+- Cached binaries before reuse (automatically re-downloads on mismatch)
+- Pre-installed binaries when `download: false` (best-effort, non-blocking)
+
+To enable checksum verification:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.8.0:
+          verify_checksum: true  # Recommended for enhanced security
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "foo-service/"
+              config:
+                trigger: "deploy-foo-service"
+```
+
+If checksums are unavailable for a release or the SHA256 command is not found on the system, the plugin will warn but continue execution (graceful degradation).
+
 ### `hooks` (optional)
 
 Currently supports a list of `commands` you wish to execute after the `watched` pipelines have been triggered
