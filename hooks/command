@@ -66,6 +66,23 @@ need_cmd() {
   fi
 }
 
+# Detect platform-appropriate SHA256 command
+# Returns: Sets RETVAL to command string, returns 0 on success, 1 if no command found
+get_sha256_cmd() {
+  if check_cmd sha256sum; then
+    RETVAL="sha256sum"
+    return 0
+  elif check_cmd shasum; then
+    RETVAL="shasum -a 256"
+    return 0
+  elif check_cmd sha256; then
+    RETVAL="sha256"
+    return 0
+  else
+    return 1
+  fi
+}
+
 # This wraps curl or wget.
 # Try curl first, if not installed, use wget instead.
 downloader() {
@@ -111,6 +128,92 @@ download_with_retry() {
   return 1
 }
 
+# Download checksums.txt from GitHub release
+# Parameters: $1 = version (e.g., "v1.8.0"), $2 = destination file path
+# Returns: 0 on success, 1 on failure
+download_checksums() {
+  local _version="$1"
+  local _dest="$2"
+  local _repo="https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin"
+  local _url="${_repo}/releases/download/${_version}/checksums.txt"
+
+  if ! downloader "$_url" "$_dest"; then
+    return 1
+  fi
+
+  return 0
+}
+
+# Verify binary against checksums.txt
+# Parameters: $1 = path to binary file, $2 = version (e.g., "v1.8.0"), $3 = architecture (e.g., "darwin_amd64")
+# Returns: 0 if valid, 1 if invalid
+verify_checksum() {
+  local _binary_path="$1"
+  local _version="$2"
+  local _arch="$3"
+  local _verify_enabled="${BUILDKITE_PLUGIN_MONOREPO_DIFF_VERIFY_CHECKSUM:-false}"
+
+  # Check if verification is disabled
+  if [[ "$_verify_enabled" == "false" ]]; then
+    return 0
+  fi
+
+  # Detect SHA256 command
+  if ! get_sha256_cmd; then
+    say "Warning: No SHA256 command found (sha256sum, shasum, or sha256), skipping verification"
+    return 0
+  fi
+  local _sha256_cmd="$RETVAL"
+
+  # Download checksums.txt to temporary file
+  local _checksums_file
+  _checksums_file=$(mktemp)
+
+  if ! download_checksums "$_version" "$_checksums_file"; then
+    say "Warning: Could not download checksums.txt, skipping verification"
+    rm -f "$_checksums_file"
+    return 0
+  fi
+
+  # Get expected checksum from checksums.txt
+  local _binary_name="monorepo-diff-buildkite-plugin_${_arch}"
+  local _expected_checksum
+  _expected_checksum=$(grep "${_binary_name}" "$_checksums_file" | awk '{print $1}')
+
+  if [[ -z "$_expected_checksum" ]]; then
+    say "Warning: Checksum not found in checksums.txt for ${_binary_name}, skipping verification"
+    rm -f "$_checksums_file"
+    return 0
+  fi
+
+  # Calculate actual checksum
+  local _actual_checksum
+  if [[ "$_sha256_cmd" == "sha256" ]]; then
+    # BSD format: SHA256 (file) = hash
+    _actual_checksum=$($_sha256_cmd "$_binary_path" | awk '{print $4}')
+  else
+    # GNU/shasum format: hash  file
+    _actual_checksum=$($_sha256_cmd "$_binary_path" | awk '{print $1}')
+  fi
+
+  # Clean up temporary file
+  rm -f "$_checksums_file"
+
+  # Compare checksums
+  if [[ "$_actual_checksum" != "$_expected_checksum" ]]; then
+    red=$(tput setaf 1 2>/dev/null || echo '')
+    reset=$(tput sgr0 2>/dev/null || echo '')
+    say "${red}ERROR${reset}: Checksum verification failed for $_binary_path" >&2
+    say "Expected: $_expected_checksum" >&2
+    say "Actual:   $_actual_checksum" >&2
+    say "This may indicate a corrupted download or a security issue." >&2
+    return 1
+  fi
+
+  say "Checksum verification passed"
+  return 0
+}
+
 get_latest_version() {
   local _repo="https://api.github.com/repos/buildkite-plugins/monorepo-diff-buildkite-plugin"
   local _version=""
@@ -121,7 +224,7 @@ get_latest_version() {
     _version=$(wget -qO- "${_repo}/releases/latest" | grep -oE '"tag_name": "v[0-9]+\.[0-9]+\.[0-9]+"' | cut -d'"' -f4)
   fi
 
-  if [[ "$_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  if [[ "$_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo "${_version}"
   fi
 }
@@ -140,7 +243,7 @@ get_version() {
     _version=${BASH_REMATCH[1]}
   fi
 
-  if [[ "$_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  if [[ "$_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     true
   else
     _version=""
@@ -160,17 +263,27 @@ download_binary_and_run() {
   local _binary_version=""
   local test_mode="${BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE:-false}"
   local _url=""
+  local _recovery_mode=false
 
   if check_cmd "${executable}"; then
     _binary_version=$(get_binary_version)
     if [[ -z "$_binary_version" ]]; then
       say "Warning: Could not determine binary version, will download fresh copy"
+    else
+      # Before reusing cached binary, verify its checksum
+      if ! verify_checksum "${executable}" "${_binary_version}" "${_arch}"; then
+        say "Cached binary failed checksum verification, attempting recovery..."
+        rm -f "${executable}"
+        rm -f "${executable_version_file}"
+        _binary_version=""
+        _recovery_mode=true
+      fi
     fi
   fi
 
   if [[ "$test_mode" == "true" ]]; then
     true
-  elif [[ "$_specified_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+  elif [[ "$_specified_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     if [[ -z "$_binary_version" ]] || [[ "$_binary_version" != "$_specified_version" ]]; then
       _url=${_repo}/releases/download/${_specified_version}/monorepo-diff-buildkite-plugin_${_arch}
       _binary_version="${_specified_version}"
@@ -194,6 +307,21 @@ download_binary_and_run() {
       exit 1
     fi
     echo "${_binary_version}" > "${executable_version_file}"
+
+    # After successful download, verify checksum
+    if ! verify_checksum "${executable}" "${_binary_version}" "${_arch}"; then
+      rm -f "${executable}"
+      if [[ "$_recovery_mode" == "true" ]]; then
+        err "Recovery download also failed checksum verification. This may indicate a problem with the release artifacts."
+      else
+        err "Downloaded binary failed checksum verification and was deleted"
+      fi
+    fi
+
+    # If this was a recovery download, verify it succeeded
+    if [[ "$_recovery_mode" == "true" ]]; then
+      say "Binary recovery successful"
+    fi
   fi
 
   chmod +x "${executable}"
@@ -208,6 +336,21 @@ run_preinstalled_binary() {
     _executable="$(basename "${executable}")"
     if ! check_cmd "${_executable}"; then
       err "Binary '$_executable' not found in PATH or binary_folder option. Please install it or set download: true"
+    fi
+  fi
+
+  # Best-effort verification for preinstalled binaries (non-blocking)
+  # Try to detect version and verify, but don't fail if we can't
+  local _binary_version
+  _binary_version=$(get_binary_version)
+  if [[ -n "$_binary_version" ]]; then
+    get_architecture || true
+    local _arch="$RETVAL"
+    if [[ -n "$_arch" ]]; then
+      # Attempt verification but don't fail if it doesn't work
+      if ! verify_checksum "${_executable}" "${_binary_version}" "${_arch}" 2>/dev/null; then
+        say "Warning: Could not verify checksum for preinstalled binary (version: ${_binary_version})"
+      fi
     fi
   fi
 

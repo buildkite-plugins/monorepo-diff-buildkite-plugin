@@ -72,7 +72,79 @@ This is a sub-section that provides configuration for running commands or trigge
 - [Group](https://buildkite.com/docs/pipelines/configure/step-types/group-step)
 - [Conditionals](https://buildkite.com/docs/pipelines/conditionals)
 
-:warning: This plugin may accept configurations that are not valid pipeline steps, this is a known issue to keep its code simple and flexible.
+#### Step Validation
+
+The plugin validates all step configurations before uploading the pipeline. Invalid steps are automatically skipped with a warning logged to the build output.
+
+**A valid step must have:**
+- A `command` or `commands` field (for command steps), OR
+- A `trigger` field (for trigger steps), OR
+- A `group` field with either:
+  - An action (`command`, `commands`, or `trigger`) directly on the group, OR
+  - Valid nested `steps`
+
+**Invalid configurations that will be skipped:**
+
+```yaml
+# ❌ Empty step - no action defined
+- path: "app/"
+  config:
+    label: "Deploy app"  # Only has a label, no command/trigger
+
+# ❌ Empty group - no action and no nested steps
+- path: "services/"
+  config:
+    group: "Deploy"
+    # Missing: steps array or action
+```
+
+**Valid configurations:**
+
+```yaml
+# ✅ Valid - has command
+- path: "app/"
+  config:
+    label: "Deploy app"
+    command: "echo deploying"
+
+# ✅ Valid - group with nested steps
+- path: "services/"
+  config:
+    group: "Deploy"
+    steps:
+      - command: "deploy.sh"
+```
+
+#### Plugins in Step Configurations
+
+The plugin preserves `plugins:` blocks when specified in command step configurations. This allows you to use Buildkite plugins within your monorepo-watched steps.
+
+**Example**
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.8.0:
+          watch:
+            - path: services/api/
+              config:
+                command: "npm test"
+                plugins:
+                  - artifacts#v1.9.4:
+                      upload: "coverage/**/*"
+                  - docker-compose#v5.12.1:
+                      run: api
+            - path: services/web/
+              config:
+                command: "yarn build"
+                plugins:
+                  - docker#v5.13.0:
+                      image: "node:20"
+                      workdir: /app
+```
+
+When changes are detected in the watched paths, the plugin generates steps that include the specified plugins. The `plugins:` blocks are preserved exactly as configured.
 
 ```yaml
 steps:
@@ -89,9 +161,9 @@ steps:
             - path: docker/
               config:
                 group: docker/**
-                steps:
+                steps:  # Required: groups must have either 'steps' or an action
                   - plugins:
-                      - docker#latest:
+                      - docker#v5.13.0:
                           build: service
                           push: service
                   - command: docker/run-e2e-tests.sh
@@ -388,6 +460,34 @@ steps:
 
 The plugin automatically retries binary downloads up to 3 times with a 5-second delay between attempts. This handles transient network issues when downloading from GitHub.
 
+### `verify_checksum` (optional)
+
+Default: `false`
+
+Enable SHA256 checksum verification for downloaded binaries to enhance security. When enabled, the plugin verifies checksums against those published in the GitHub release, providing protection against compromised artifacts, network attacks, and binary tampering.
+
+Checksum verification is performed for:
+- Newly downloaded binaries (fails and deletes binary on mismatch)
+- Cached binaries before reuse (automatically re-downloads on mismatch)
+- Pre-installed binaries when `download: false` (best-effort, non-blocking)
+
+To enable checksum verification:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.8.0:
+          verify_checksum: true  # Recommended for enhanced security
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "foo-service/"
+              config:
+                trigger: "deploy-foo-service"
+```
+
+If checksums are unavailable for a release or the SHA256 command is not found on the system, the plugin will warn but continue execution (graceful degradation).
+
 ### `hooks` (optional)
 
 Currently supports a list of `commands` you wish to execute after the `watched` pipelines have been triggered
@@ -566,6 +666,41 @@ steps:
               config:
                 key: echo-step
                 command: "echo deploy-bar"
+```
+
+## Troubleshooting
+
+### "Skipping invalid step" warnings
+
+If you see warnings like `Skipping invalid step: empty step configuration`, check that your step configuration includes:
+
+1. For command steps: `command` or `commands` field
+2. For trigger steps: `trigger` field
+3. For group steps: `group` field with either `steps` array or an action
+
+**Common issues:**
+
+- Forgetting to add `command:` or `trigger:` inside the `config` block
+- Creating empty groups without nested steps
+- Using only metadata fields like `label`, `key`, or `env` without an action
+
+**Example of fixing an invalid configuration:**
+
+```yaml
+# ❌ Invalid - missing action
+- path: "app/"
+  config:
+    label: "Deploy app"
+    env:
+      - ENV=production
+
+# ✅ Fixed - added command
+- path: "app/"
+  config:
+    label: "Deploy app"
+    command: "deploy.sh"
+    env:
+      - ENV=production
 ```
 
 ## Compatibility

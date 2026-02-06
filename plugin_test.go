@@ -1282,6 +1282,7 @@ func TestPluginRejectsBothArtifactsFields(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot specify both 'artifacts' and 'artifact_paths'")
 }
+
 // Unit tests for parseEnv function
 
 func TestParseEnvMapStringFormat(t *testing.T) {
@@ -1665,4 +1666,121 @@ func TestMapEnvWithOSEnvReading(t *testing.T) {
 	assert.Equal(t, "us-west-2", got.Env["AWS_REGION"])  // Null reads from OS env
 	assert.Equal(t, "", got.Env["EMPTY_VAR"])            // Empty string is literal
 	assert.Equal(t, "explicit-value", got.Env["EXPLICIT"])
+}
+
+func TestStepIsValid_EmptyStep(t *testing.T) {
+	step := Step{}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_OnlyLabel(t *testing.T) {
+	step := Step{Label: "test step"}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_WithCommand(t *testing.T) {
+	step := Step{Command: "echo valid"}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_WithCommands(t *testing.T) {
+	step := Step{Commands: []string{"echo valid", "echo also valid"}}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_WithTrigger(t *testing.T) {
+	step := Step{Trigger: "valid-trigger"}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_GroupWithCommand(t *testing.T) {
+	step := Step{
+		Group:   "deploy",
+		Command: "echo deploy",
+	}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_GroupWithSteps(t *testing.T) {
+	step := Step{
+		Group: "tests",
+		Steps: []Step{
+			{Command: "echo test 1"},
+			{Command: "echo test 2"},
+		},
+	}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_EmptyGroup(t *testing.T) {
+	step := Step{
+		Group: "empty-group",
+		Steps: []Step{},
+	}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_GroupWithInvalidSteps(t *testing.T) {
+	step := Step{
+		Group: "invalid-group",
+		Steps: []Step{
+			{Label: "no command"},
+			{},
+		},
+	}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_GroupWithMixedSteps(t *testing.T) {
+	step := Step{
+		Group: "mixed-group",
+		Steps: []Step{
+			{Command: "echo valid"},
+			{Label: "invalid - no command"},
+		},
+	}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_DeeplyNested(t *testing.T) {
+	step := Step{
+		Group: "outer",
+		Steps: []Step{
+			{
+				Group: "inner",
+				Steps: []Step{
+					{Command: "echo deeply nested"},
+				},
+			},
+		},
+	}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_DeeplyNestedInvalid(t *testing.T) {
+	step := Step{
+		Group: "outer",
+		Steps: []Step{
+			{
+				Group: "inner",
+				Steps: []Step{
+					{Label: "no command"},
+				},
+			},
+		},
+	}
+	assert.False(t, step.isValid())
+}
+
+func TestStepIsValid_OnlyMetadata(t *testing.T) {
+	step := Step{
+		Label: "test",
+		Env: map[string]string{
+			"KEY": "value",
+		},
+		Agents: Agent{
+			"queue": "default",
+		},
+	}
+	assert.False(t, step.isValid())
 }

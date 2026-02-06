@@ -126,6 +126,38 @@ func diff(command string) ([]string, error) {
 	return paths, nil
 }
 
+// filterValidSteps splits steps into valid and invalid
+func filterValidSteps(steps []Step) (valid []Step, invalid []Step) {
+	valid = []Step{}
+	invalid = []Step{}
+
+	for _, step := range steps {
+		if step.isValid() {
+			valid = append(valid, step)
+		} else {
+			invalid = append(invalid, step)
+		}
+	}
+	return valid, invalid
+}
+
+// logInvalidStep logs why a step is invalid
+func logInvalidStep(step Step) {
+	context := "empty step configuration"
+
+	if step.Group != "" {
+		if len(step.Steps) == 0 {
+			context = fmt.Sprintf("group '%s' has no valid nested steps", step.Group)
+		} else {
+			context = fmt.Sprintf("group '%s' has invalid nested steps", step.Group)
+		}
+	} else if step.Label != "" {
+		context = fmt.Sprintf("step with label '%s' has no command, trigger, or group", step.Label)
+	}
+
+	log.Warnf("Skipping invalid step: %s. Steps must have at least one of: command, commands, trigger, or group with nested steps.", context)
+}
+
 func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 	steps := []Step{}
 	var defaultStep *Step
@@ -192,7 +224,15 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 		steps = append(steps, *defaultStep)
 	}
 
-	return dedupSteps(steps), nil
+	deduped := dedupSteps(steps)
+	valid, invalid := filterValidSteps(deduped)
+
+	// Log all invalid steps with helpful context
+	for _, step := range invalid {
+		logInvalidStep(step)
+	}
+
+	return valid, nil
 }
 
 // matchPath checks if the file f matches the path p.
