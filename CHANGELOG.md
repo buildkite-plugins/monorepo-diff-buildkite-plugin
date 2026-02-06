@@ -6,13 +6,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.9.0]
+
 ### Added
-* Accept both `artifact_paths` (preferred) and `artifacts` (alternative) field names in plugin configuration for backward compatibility (#120)
+* Add step validation to skip invalid configurations with helpful warnings (#158)
+* Add SHA256 checksum verification for downloaded binaries (#155)
+* Add map format support for env configuration with null literal support for reading from OS environment (#154)
+* Preserve and display plugins defined within command steps in README documentation (#157)
 
 ### Fixed
-* Fix `artifact_paths` field being ignored when specified in plugin configuration. Both `artifact_paths` and `artifacts` now work correctly (#120)
-* Fix typo in test case: "artifiact" → "artifact"
-* Fix BATS test failures caused by unbound `BUILDKITE_PLUGINS_PATH` variable in hooks/command
+* Fix notify processing in group steps (#156)
+
+## [v1.8.0]
+
+### Added
+* Accept both `artifact_paths` (preferred) and `artifacts` (alternative) field names in plugin configuration for backward compatibility (#151)
+* Keep the binary in the plugin directory instead of build directory (#135)
+
+### Changed
+* Update module github.com/bmatcuk/doublestar/v4 to v4.10.0 (#150)
+* Update dependency go to v1.25.7 (#152)
+* Update module github.com/sirupsen/logrus to v1.9.4 (#146)
+* Update dependency go to v1.25.6 (#147)
+* Update buildkite plugin secrets to v2 (#149)
+
+### Fixed
+* Fix `artifact_paths` field being ignored when specified in plugin configuration (#151)
+* Have `download: false` respect `binary_folder` configuration (#148)
+
+## [v1.7.0]
+
+### Added
+* Add support for `secrets` field in step configuration (#137)
+
+## [v1.6.2]
+
+### Fixed
+* Fix env parsing of complex values with equals signs (#141)
+
+### Changed
+* Update versions in README (#142)
+
+## [v1.6.1]
+
+### Added
+* Add `download` configuration option to support pre-installed binaries (#130)
+* Add retry logic for binary download to handle transient network issues (#138)
 
 ## [v1.6.0]
 
