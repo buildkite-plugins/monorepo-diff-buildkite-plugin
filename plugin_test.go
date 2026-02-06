@@ -1368,8 +1368,8 @@ func TestParseEnvMapEmptyStringPreserved(t *testing.T) {
 	result, err := parseEnv(input)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "", result["TEST_VAR"])        // Empty string preserved
-	assert.Equal(t, "", result["ANOTHER_VAR"])     // Empty string preserved
+	assert.Equal(t, "", result["TEST_VAR"])    // Empty string preserved
+	assert.Equal(t, "", result["ANOTHER_VAR"]) // Empty string preserved
 	assert.Equal(t, "value", result["EXPLICIT"])
 }
 
@@ -1700,8 +1700,8 @@ func TestMapEnvWithOSEnvReading(t *testing.T) {
 	got, err := initializePlugin(param)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "us-west-2", got.Env["AWS_REGION"])  // Null reads from OS env
-	assert.Equal(t, "", got.Env["EMPTY_VAR"])            // Empty string is literal
+	assert.Equal(t, "us-west-2", got.Env["AWS_REGION"]) // Null reads from OS env
+	assert.Equal(t, "", got.Env["EMPTY_VAR"])           // Empty string is literal
 	assert.Equal(t, "explicit-value", got.Env["EXPLICIT"])
 }
 
