@@ -105,7 +105,23 @@ func diff(command string) ([]string, error) {
 		return nil, fmt.Errorf("diff command failed: %v", err)
 	}
 
-	fields := strings.Fields(strings.TrimSpace(output))
+	trimmed := strings.TrimSpace(output)
+
+	// Git diff --name-only outputs one file per line. Split on newlines to
+	// preserve filenames that contain spaces. Fall back to strings.Fields
+	// for single-line output (e.g. legacy diff commands) for backward compat.
+	var fields []string
+	if strings.Contains(trimmed, "\n") {
+		for _, line := range strings.Split(trimmed, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				fields = append(fields, line)
+			}
+		}
+	} else {
+		fields = strings.Fields(trimmed)
+	}
+
 	paths := make([]string, 0, len(fields))
 
 	for _, field := range fields {
