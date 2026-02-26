@@ -129,6 +129,21 @@ func TestDiffWithQuotedPaths(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+func TestDiffWithSpacesInFilenames(t *testing.T) {
+	// Simulates git diff --name-only output with one filename per line,
+	// where some filenames contain spaces.
+	want := []string{
+		"directory/File Name With Spaces.md",
+		"another dir/some file.txt",
+		"no-spaces.go",
+	}
+
+	// printf produces newline-separated output, just like git diff --name-only
+	got, err := diff(`printf 'directory/File Name With Spaces.md\nanother dir/some file.txt\nno-spaces.go'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
 func TestStepsToTriggerWithEmojiPaths(t *testing.T) {
 	watch := []WatchConfig{
 		{
