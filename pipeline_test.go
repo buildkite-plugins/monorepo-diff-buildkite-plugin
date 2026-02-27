@@ -99,11 +99,7 @@ func TestDiff(t *testing.T) {
 		"README.md",
 	}
 
-	got, err := diff(`echo services/foo/serverless.yml
-services/bar/config.yml
-
-ops/bar/config.yml
-README.md`)
+	got, err := diff(`printf 'services/foo/serverless.yml\nservices/bar/config.yml\n\nops/bar/config.yml\nREADME.md\n'`)
 
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
@@ -114,7 +110,7 @@ func TestDiffWithSubshell(t *testing.T) {
 		"user-service/infrastructure/cloudfront.yaml",
 		"user-service/serverless.yaml",
 	}
-	got, err := diff("echo $(cat e2e/multiple-paths)")
+	got, err := diff("cat e2e/multiple-paths")
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -124,7 +120,7 @@ func TestDiffWithQuotedPaths(t *testing.T) {
 		"projects/test/pages/17_🪁_testfile.py",
 		"normal/file.txt",
 	}
-	got, err := diff(`printf '"projects/test/pages/17_\360\237\252\201_testfile.py" normal/file.txt'`)
+	got, err := diff(`printf '"projects/test/pages/17_\360\237\252\201_testfile.py"\nnormal/file.txt'`)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
