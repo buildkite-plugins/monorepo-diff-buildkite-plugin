@@ -189,6 +189,12 @@ func TestDiffWhitespaceOnlyOutput(t *testing.T) {
 	assert.Equal(t, []string{}, got)
 }
 
+func TestDiffWhitespaceOnlyNoNewlines(t *testing.T) {
+	got, err := diff(`printf '   \t  '`)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{}, got)
+}
+
 func TestDiffSingleFileNoTrailingNewline(t *testing.T) {
 	// Legacy compat: custom diff commands may not emit a trailing newline
 	want := []string{"services/foo/serverless.yml"}
