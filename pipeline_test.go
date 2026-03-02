@@ -99,11 +99,7 @@ func TestDiff(t *testing.T) {
 		"README.md",
 	}
 
-	got, err := diff(`echo services/foo/serverless.yml
-services/bar/config.yml
-
-ops/bar/config.yml
-README.md`)
+	got, err := diff(`printf 'services/foo/serverless.yml\nservices/bar/config.yml\n\nops/bar/config.yml\nREADME.md\n'`)
 
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
@@ -114,7 +110,7 @@ func TestDiffWithSubshell(t *testing.T) {
 		"user-service/infrastructure/cloudfront.yaml",
 		"user-service/serverless.yaml",
 	}
-	got, err := diff("echo $(cat e2e/multiple-paths)")
+	got, err := diff("cat e2e/multiple-paths")
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -124,7 +120,43 @@ func TestDiffWithQuotedPaths(t *testing.T) {
 		"projects/test/pages/17_🪁_testfile.py",
 		"normal/file.txt",
 	}
-	got, err := diff(`printf '"projects/test/pages/17_\360\237\252\201_testfile.py" normal/file.txt'`)
+	got, err := diff(`printf '"projects/test/pages/17_\360\237\252\201_testfile.py"\nnormal/file.txt\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffWithSpacesInFilenames(t *testing.T) {
+	// Simulates git diff --name-only output with one filename per line,
+	// where some filenames contain spaces.
+	want := []string{
+		"directory/File Name With Spaces.md",
+		"another dir/some file.txt",
+		"no-spaces.go",
+	}
+
+	// printf produces newline-separated output, just like git diff --name-only
+	got, err := diff(`printf 'directory/File Name With Spaces.md\nanother dir/some file.txt\nno-spaces.go\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffSingleFile(t *testing.T) {
+	want := []string{
+		"services/foo/serverless.yml",
+	}
+
+	got, err := diff(`printf 'services/foo/serverless.yml\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffWithSpacesInFilenamesSingleFile(t *testing.T) {
+	want := []string{
+		"directory/File Name With Spaces.md",
+	}
+
+	// printf produces newline-separated output, just like git diff --name-only
+	got, err := diff(`printf 'directory/File Name With Spaces.md\n'`)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
