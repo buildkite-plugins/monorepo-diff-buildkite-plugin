@@ -105,17 +105,21 @@ func diff(command string) ([]string, error) {
 		return nil, fmt.Errorf("diff command failed: %v", err)
 	}
 
-	trimmed := strings.TrimSpace(output)
+	trimmed := strings.Trim(output, " \t\r\v\f")
 	if trimmed == "" {
-		return nil, nil
+		return []string{}, nil
 	}
 
 	var fields []string
-	for _, line := range strings.Split(trimmed, "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			fields = append(fields, line)
+	if strings.Contains(trimmed, "\n") {
+		for _, line := range strings.Split(trimmed, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				fields = append(fields, line)
+			}
 		}
+	} else {
+		fields = strings.Fields(trimmed)
 	}
 
 	paths := make([]string, 0, len(fields))

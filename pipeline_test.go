@@ -120,7 +120,7 @@ func TestDiffWithQuotedPaths(t *testing.T) {
 		"projects/test/pages/17_🪁_testfile.py",
 		"normal/file.txt",
 	}
-	got, err := diff(`printf '"projects/test/pages/17_\360\237\252\201_testfile.py"\nnormal/file.txt'`)
+	got, err := diff(`printf '"projects/test/pages/17_\360\237\252\201_testfile.py"\nnormal/file.txt\n'`)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -135,7 +135,7 @@ func TestDiffWithSpacesInFilenames(t *testing.T) {
 	}
 
 	// printf produces newline-separated output, just like git diff --name-only
-	got, err := diff(`printf 'directory/File Name With Spaces.md\nanother dir/some file.txt\nno-spaces.go'`)
+	got, err := diff(`printf 'directory/File Name With Spaces.md\nanother dir/some file.txt\nno-spaces.go\n'`)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -145,7 +145,7 @@ func TestDiffSingleFile(t *testing.T) {
 		"services/foo/serverless.yml",
 	}
 
-	got, err := diff(`printf 'services/foo/serverless.yml'`)
+	got, err := diff(`printf 'services/foo/serverless.yml\n'`)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -156,7 +156,7 @@ func TestDiffWithSpacesInFilenamesSingleFile(t *testing.T) {
 	}
 
 	// printf produces newline-separated output, just like git diff --name-only
-	got, err := diff(`printf 'directory/File Name With Spaces.md'`)
+	got, err := diff(`printf 'directory/File Name With Spaces.md\n'`)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
