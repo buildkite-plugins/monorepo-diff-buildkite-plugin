@@ -108,9 +108,25 @@ func TestDiff(t *testing.T) {
 func TestDiffWithSubshell(t *testing.T) {
 	want := []string{
 		"user-service/infrastructure/cloudfront.yaml",
+		"user-service/my config/settings.yaml",
 		"user-service/serverless.yaml",
 	}
 	got, err := diff("cat e2e/multiple-paths")
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffRealisticGitOutput(t *testing.T) {
+	// Fixture mirrors git diff --name-only output: plain paths, C-style
+	// quoted paths (tab, octal emoji), and paths with spaces.
+	want := []string{
+		"normal/path.go",
+		"path/with\tescape.go",
+		"directory/File Name With Spaces.md",
+		"projects/17_🪁_emoji.py",
+		"another dir/some file.txt",
+	}
+	got, err := diff("cat e2e/diff-output-realistic")
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -157,6 +173,48 @@ func TestDiffWithSpacesInFilenamesSingleFile(t *testing.T) {
 
 	// printf produces newline-separated output, just like git diff --name-only
 	got, err := diff(`printf 'directory/File Name With Spaces.md\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffEmptyOutput(t *testing.T) {
+	got, err := diff(`printf ''`)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{}, got)
+}
+
+func TestDiffWhitespaceOnlyOutput(t *testing.T) {
+	got, err := diff(`printf '\n\n\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{}, got)
+}
+
+func TestDiffSingleFileNoTrailingNewline(t *testing.T) {
+	// Legacy compat: custom diff commands may not emit a trailing newline
+	want := []string{"services/foo/serverless.yml"}
+	got, err := diff(`printf 'services/foo/serverless.yml'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffWindowsLineEndings(t *testing.T) {
+	want := []string{
+		"services/foo/file.go",
+		"services/bar/file.go",
+	}
+	got, err := diff(`printf 'services/foo/file.go\r\nservices/bar/file.go\r\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffQuotedPathsWithSpaces(t *testing.T) {
+	// Git C-style quotes paths with special chars; spaces alone don't trigger quoting,
+	// but paths with both spaces and special chars will be quoted.
+	want := []string{
+		"projects/my docs/17_🪁_file.py",
+		"normal/file.txt",
+	}
+	got, err := diff(`printf '"projects/my docs/17_\360\237\252\201_file.py"\nnormal/file.txt\n'`)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
