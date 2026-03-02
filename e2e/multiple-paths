@@ -1,2 +1,3 @@
 user-service/infrastructure/cloudfront.yaml
+user-service/my config/settings.yaml
 user-service/serverless.yaml

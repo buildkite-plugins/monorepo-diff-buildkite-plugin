@@ -236,11 +236,16 @@ Depending on your use case, you may want to determine the point where the branch
 
 Default: `git diff --name-only HEAD~1`
 
+The diff command must produce **newline-delimited output** with one file path per line. This is the format that `git diff --name-only` produces by default. Newline-delimited output is required for filenames containing spaces to be parsed correctly.
+
+Custom diff scripts should follow the same convention — print one path per line to standard output.
+
 #### Sample output
 
 ```
 README.md
 lib/trigger.bash
+directory/File Name With Spaces.md
 ```
 
 #### Example scripts
