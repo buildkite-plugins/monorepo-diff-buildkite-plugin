@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.9.1](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.9.0...v1.9.1) (2026-03-02)
+
+### Fixed
+* Support whitespaces in filenames [#162](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/162) ([siredmar](https://github.com/siredmar))
+
+### Added
+* Improve diff() logic, extend tests [#163](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/163) ([petetomasik](https://github.com/petetomasik))
+
+### Changed
+* Update goreleaser/goreleaser-action action to v7 [#161](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/161) ([renovate[bot]](https://github.com/apps/renovate))
+* Update dependency go to v1.26.0 [#160](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/160) ([renovate[bot]](https://github.com/apps/renovate))
+
 ## [v1.9.0]
 
 ### Added
