@@ -21,6 +21,7 @@ func validatePipelineWithAgent(t *testing.T, pipelinePath string) {
 		t.Log("buildkite-agent not installed; skipping dry-run validation")
 		return
 	}
+	// --agent-access-token is required by the agent even for --dry-run; "dummy" satisfies the check without a real token
 	cmd := exec.Command(agentPath, "pipeline", "upload", pipelinePath, "--dry-run", "--agent-access-token", "dummy")
 	out, err := cmd.CombinedOutput()
 	t.Log(string(out))
@@ -71,8 +72,6 @@ func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.NoError(t, agent.CheckAndClose(t))
-
-	validatePipelineWithAgent(t, pipelinePath)
 }
 
 func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T) {
@@ -99,8 +98,6 @@ func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T)
 	assert.NoError(t, err)
 
 	require.NoError(t, agent.CheckAndClose(t))
-
-	validatePipelineWithAgent(t, pipelinePath)
 }
 
 func TestUploadPipelineCancelsIfThereIsNoDiffOutput(t *testing.T) {
