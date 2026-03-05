@@ -649,6 +649,7 @@ steps:
     - command: cat ./file.txt
 `
 
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
 
 	validatePipelineWithAgent(t, pipeline.Name())
@@ -681,6 +682,7 @@ func TestGeneratePipelineWithNoStepsAndHooks(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
 
 	validatePipelineWithAgent(t, pipeline.Name())
@@ -704,6 +706,7 @@ func TestGeneratePipelineWithNoStepsAndNoHooks(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
 
 	validatePipelineWithAgent(t, pipeline.Name())
@@ -742,6 +745,7 @@ func TestGeneratePipelineWithCondition(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
 
 	validatePipelineWithAgent(t, pipeline.Name())
@@ -788,6 +792,7 @@ func TestGeneratePipelineWithDependsOn(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
 
 	validatePipelineWithAgent(t, pipeline.Name())
@@ -839,6 +844,7 @@ func TestGeneratePipelineWithStepKey(t *testing.T) {
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
 
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
 }
 
@@ -905,6 +911,7 @@ func TestGeneratePipelineWithSecretsAsArray(t *testing.T) {
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
 
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
 }
 
