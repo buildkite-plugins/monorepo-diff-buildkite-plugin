@@ -143,11 +143,7 @@ func TestDiff(t *testing.T) {
 		"README.md",
 	}
 
-	got, err := diff(`echo services/foo/serverless.yml
-services/bar/config.yml
-
-ops/bar/config.yml
-README.md`)
+	got, err := diff(`printf 'services/foo/serverless.yml\nservices/bar/config.yml\n\nops/bar/config.yml\nREADME.md\n'`)
 
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
@@ -156,9 +152,25 @@ README.md`)
 func TestDiffWithSubshell(t *testing.T) {
 	want := []string{
 		"user-service/infrastructure/cloudfront.yaml",
+		"user-service/my config/settings.yaml",
 		"user-service/serverless.yaml",
 	}
-	got, err := diff("echo $(cat e2e/multiple-paths)")
+	got, err := diff("cat e2e/multiple-paths")
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffRealisticGitOutput(t *testing.T) {
+	// Fixture mirrors git diff --name-only output: plain paths, C-style
+	// quoted paths (tab, octal emoji), and paths with spaces.
+	want := []string{
+		"normal/path.go",
+		"path/with\tescape.go",
+		"directory/File Name With Spaces.md",
+		"projects/17_🪁_emoji.py",
+		"another dir/some file.txt",
+	}
+	got, err := diff("cat e2e/diff-output-realistic")
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -168,7 +180,91 @@ func TestDiffWithQuotedPaths(t *testing.T) {
 		"projects/test/pages/17_🪁_testfile.py",
 		"normal/file.txt",
 	}
-	got, err := diff(`printf '"projects/test/pages/17_\360\237\252\201_testfile.py" normal/file.txt'`)
+	got, err := diff(`printf '"projects/test/pages/17_\360\237\252\201_testfile.py"\nnormal/file.txt\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffWithSpacesInFilenames(t *testing.T) {
+	// Simulates git diff --name-only output with one filename per line,
+	// where some filenames contain spaces.
+	want := []string{
+		"directory/File Name With Spaces.md",
+		"another dir/some file.txt",
+		"no-spaces.go",
+	}
+
+	// printf produces newline-separated output, just like git diff --name-only
+	got, err := diff(`printf 'directory/File Name With Spaces.md\nanother dir/some file.txt\nno-spaces.go\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffSingleFile(t *testing.T) {
+	want := []string{
+		"services/foo/serverless.yml",
+	}
+
+	got, err := diff(`printf 'services/foo/serverless.yml\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffWithSpacesInFilenamesSingleFile(t *testing.T) {
+	want := []string{
+		"directory/File Name With Spaces.md",
+	}
+
+	// printf produces newline-separated output, just like git diff --name-only
+	got, err := diff(`printf 'directory/File Name With Spaces.md\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffEmptyOutput(t *testing.T) {
+	got, err := diff(`printf ''`)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{}, got)
+}
+
+func TestDiffWhitespaceOnlyOutput(t *testing.T) {
+	got, err := diff(`printf '\n\n\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{}, got)
+}
+
+func TestDiffWhitespaceOnlyNoNewlines(t *testing.T) {
+	got, err := diff(`printf '   \t  '`)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{}, got)
+}
+
+func TestDiffSingleFileNoTrailingNewline(t *testing.T) {
+	// Legacy compat: custom diff commands may not emit a trailing newline
+	want := []string{"services/foo/serverless.yml"}
+	got, err := diff(`printf 'services/foo/serverless.yml'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffWindowsLineEndings(t *testing.T) {
+	want := []string{
+		"services/foo/file.go",
+		"services/bar/file.go",
+	}
+	got, err := diff(`printf 'services/foo/file.go\r\nservices/bar/file.go\r\n'`)
+	assert.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+func TestDiffQuotedPathsWithSpaces(t *testing.T) {
+	// Git C-style quotes paths with special chars; spaces alone don't trigger quoting,
+	// but paths with both spaces and special chars will be quoted.
+	want := []string{
+		"projects/my docs/17_🪁_file.py",
+		"normal/file.txt",
+	}
+	got, err := diff(`printf '"projects/my docs/17_\360\237\252\201_file.py"\nnormal/file.txt\n'`)
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
@@ -783,4 +879,398 @@ func TestGeneratePipelineWithDependsOn(t *testing.T) {
 	} else {
 		t.Log("buildkite-agent not installed; skipping dry-run validation")
 	}
+}
+
+func TestGeneratePipelineWithStepKey(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo build",
+			Label:   "Build",
+			Key:     "build-step",
+		},
+		{
+			Command:   "echo test",
+			Label:     "Test",
+			Key:       "test-step",
+			DependsOn: "build-step",
+		},
+		{
+			Trigger:   "deploy-pipeline",
+			DependsOn: []interface{}{"build-step", "test-step"},
+		},
+	}
+
+	want := `steps:
+    - label: Build
+      command: echo build
+      key: build-step
+    - label: Test
+      command: echo test
+      depends_on: build-step
+      key: test-step
+    - trigger: deploy-pipeline
+      depends_on:
+        - build-step
+        - test-step
+`
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	assert.Equal(t, want, string(got))
+}
+
+func TestGeneratePipelineWithSecretsAsMap(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo deploy",
+			Label:   "Deploy",
+			Secrets: map[string]interface{}{
+				"DATABRICKS_HOST":  "databricks_host_secret",
+				"DATABRICKS_TOKEN": "databricks_token_secret",
+			},
+		},
+	}
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	// Check that the output contains the expected secrets (order may vary in maps)
+	assert.Contains(t, string(got), "label: Deploy")
+	assert.Contains(t, string(got), "command: echo deploy")
+	assert.Contains(t, string(got), "secrets:")
+	assert.Contains(t, string(got), "DATABRICKS_HOST: databricks_host_secret")
+	assert.Contains(t, string(got), "DATABRICKS_TOKEN: databricks_token_secret")
+}
+
+func TestGeneratePipelineWithSecretsAsArray(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo deploy",
+			Label:   "Deploy",
+			Secrets: []interface{}{"API_ACCESS_TOKEN", "DATABASE_PASSWORD"},
+		},
+	}
+
+	want := `steps:
+    - label: Deploy
+      command: echo deploy
+      secrets:
+        - API_ACCESS_TOKEN
+        - DATABASE_PASSWORD
+`
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	assert.Equal(t, want, string(got))
+}
+
+func TestGeneratePipelineWithSecretsInGroup(t *testing.T) {
+	steps := []Step{
+		{
+			Group: "deploy group",
+			Steps: []Step{
+				{
+					Command: "echo deploy uat",
+					Label:   "Deploy UAT",
+					Secrets: map[string]interface{}{
+						"DB_HOST": "uat_db_host",
+					},
+				},
+				{
+					Command: "echo deploy prod",
+					Label:   "Deploy Prod",
+					Secrets: []interface{}{"PROD_DB_HOST", "PROD_DB_PASS"},
+				},
+			},
+		},
+	}
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	// Check structure and content (map order may vary)
+	assert.Contains(t, string(got), "group: deploy group")
+	assert.Contains(t, string(got), "label: Deploy UAT")
+	assert.Contains(t, string(got), "command: echo deploy uat")
+	assert.Contains(t, string(got), "DB_HOST: uat_db_host")
+	assert.Contains(t, string(got), "label: Deploy Prod")
+	assert.Contains(t, string(got), "command: echo deploy prod")
+	assert.Contains(t, string(got), "- PROD_DB_HOST")
+	assert.Contains(t, string(got), "- PROD_DB_PASS")
+}
+
+func TestGeneratePipelineWithNotifyInGroup(t *testing.T) {
+	steps := []Step{{
+		Group: "Test Group",
+		Steps: []Step{{
+			Label:   "Run Tests",
+			Command: "echo 'test'",
+			Notify: []StepNotify{{
+				GithubStatus: GithubStatusNotification{
+					Context: "buildkite/test/status",
+				},
+			}},
+		}},
+	}}
+
+	plugin := Plugin{}
+
+	tmp, hasPipeline, err := generatePipeline(steps, plugin)
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+
+	output := string(content)
+
+	// Verify correct notify syntax (not rawnotify)
+	assert.Contains(t, output, "notify:")
+	assert.NotContains(t, output, "rawnotify")
+	assert.Contains(t, output, "github_commit_status:")
+	assert.Contains(t, output, "context: buildkite/test/status")
+}
+
+func TestFilterValidSteps_AllValid(t *testing.T) {
+	steps := []Step{
+		{Command: "echo valid 1"},
+		{Trigger: "valid-trigger"},
+		{Commands: []string{"echo valid 2"}},
+	}
+
+	valid, invalid := filterValidSteps(steps)
+
+	assert.Len(t, valid, 3)
+	assert.Len(t, invalid, 0)
+}
+
+func TestFilterValidSteps_AllInvalid(t *testing.T) {
+	steps := []Step{
+		{},
+		{Label: "no command"},
+		{Env: map[string]string{"KEY": "value"}},
+	}
+
+	valid, invalid := filterValidSteps(steps)
+
+	assert.Len(t, valid, 0)
+	assert.Len(t, invalid, 3)
+}
+
+func TestFilterValidSteps_MixedValidInvalid(t *testing.T) {
+	steps := []Step{
+		{Command: "echo valid"},
+		{},
+		{Trigger: "valid-trigger"},
+		{Label: "invalid - no command/trigger"},
+		{Commands: []string{"echo also valid"}},
+	}
+
+	valid, invalid := filterValidSteps(steps)
+
+	assert.Len(t, valid, 3)
+	assert.Len(t, invalid, 2)
+	assert.Equal(t, "echo valid", valid[0].Command)
+	assert.Equal(t, "valid-trigger", valid[1].Trigger)
+	assert.NotNil(t, valid[2].Commands)
+}
+
+func TestFilterValidSteps_GroupSteps(t *testing.T) {
+	steps := []Step{
+		{
+			Group: "valid-group",
+			Steps: []Step{
+				{Command: "echo test"},
+			},
+		},
+		{
+			Group: "empty-group",
+			Steps: []Step{},
+		},
+		{
+			Group: "invalid-nested-group",
+			Steps: []Step{
+				{Label: "no command"},
+			},
+		},
+	}
+
+	valid, invalid := filterValidSteps(steps)
+
+	assert.Len(t, valid, 1)
+	assert.Len(t, invalid, 2)
+	assert.Equal(t, "valid-group", valid[0].Group)
+}
+
+func TestStepsToTrigger_Issue83(t *testing.T) {
+	// Integration test for issue #83 - empty step configuration
+	watch := []WatchConfig{
+		{
+			Paths: []string{"some-path/**"},
+			Step:  Step{}, // Empty step - should be filtered
+		},
+		{
+			Paths: []string{"other-path/**"},
+			Step:  Step{Command: "echo valid"},
+		},
+	}
+
+	changedFiles := []string{
+		"some-path/file.txt",
+		"other-path/file.txt",
+	}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 1)
+	assert.Equal(t, "echo valid", steps[0].Command)
+}
+
+func TestStepsToTrigger_DefaultWithEmptyStep(t *testing.T) {
+	// Test that empty default step is filtered
+	watch := []WatchConfig{
+		{
+			Paths: []string{"app/"},
+			Step:  Step{Command: "echo app"},
+		},
+		{
+			Default: struct{}{},
+			Step:    Step{}, // Empty default - should be filtered
+		},
+	}
+
+	changedFiles := []string{"unmatched/file.txt"}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 0)
+}
+
+func TestStepsToTrigger_AllStepsInvalid(t *testing.T) {
+	// Test that when all matched steps are invalid, empty array is returned
+	watch := []WatchConfig{
+		{
+			Paths: []string{"path1/"},
+			Step:  Step{},
+		},
+		{
+			Paths: []string{"path2/"},
+			Step:  Step{Label: "no command"},
+		},
+	}
+
+	changedFiles := []string{"path1/file.txt", "path2/file.txt"}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 0)
+}
+
+func TestStepsToTrigger_EmptyGroupInConfig(t *testing.T) {
+	// Test that empty group steps are filtered
+	watch := []WatchConfig{
+		{
+			Paths: []string{"services/"},
+			Step: Step{
+				Group: "deploy",
+				Steps: []Step{}, // Empty group
+			},
+		},
+	}
+
+	changedFiles := []string{"services/main.go"}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 0)
+}
+
+func TestStepsToTrigger_ValidAndInvalidStepsMixed(t *testing.T) {
+	// Test that valid steps are kept while invalid are filtered
+	watch := []WatchConfig{
+		{
+			Paths: []string{"app/"},
+			Step:  Step{Command: "echo valid app"},
+		},
+		{
+			Paths: []string{"tests/"},
+			Step:  Step{}, // Invalid
+		},
+		{
+			Paths: []string{"deploy/"},
+			Step:  Step{Trigger: "deploy-pipeline"},
+		},
+	}
+
+	changedFiles := []string{
+		"app/main.go",
+		"tests/test.go",
+		"deploy/script.sh",
+	}
+
+	steps, err := stepsToTrigger(changedFiles, watch)
+
+	assert.NoError(t, err)
+	assert.Len(t, steps, 2)
+
+	// Verify we got the valid steps
+	hasAppStep := false
+	hasDeployStep := false
+	for _, step := range steps {
+		if step.Command == "echo valid app" {
+			hasAppStep = true
+		}
+		if step.Trigger == "deploy-pipeline" {
+			hasDeployStep = true
+		}
+	}
+	assert.True(t, hasAppStep)
+	assert.True(t, hasDeployStep)
 }

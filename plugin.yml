@@ -7,12 +7,21 @@ configuration:
   properties:
     diff:
       type: string
+    download:
+      type: boolean
+    verify_checksum:
+      type: boolean
     log_level:
       type: string
     interpolation:
       type: boolean
     env:
-      type: array
+      type: [array, object]
+      description: >
+        Environment variables. Array: ["KEY=value", "KEY"] or Map: {KEY: "value", KEY2: ~}
+        Array format: KEY-only reads from OS. Map format: use "KEY: ~" (null literal) to read from OS, "KEY: ''" for empty string.
+    binary_folder:
+      type: string
     notify:
       type: [array]
       properties:
@@ -42,6 +51,8 @@ configuration:
         config:
           type: object
           properties:
+            key: 
+              type: string
             command:
               type: string
             trigger:
@@ -78,7 +89,10 @@ configuration:
                 branch:
                   type: string
                 env:
-                  type: array
+                  type: [array, object]
+                  description: >
+                    Environment variables. Array: ["KEY=value", "KEY"] or Map: {KEY: "value", KEY2: ~}
+                    Array: KEY-only reads from OS. Map: use "KEY: ~" (null literal) to read from OS, "KEY: ''" for empty string.
             agents:
               type: object
               properties:
@@ -88,8 +102,15 @@ configuration:
                 type: string
             artifacts:
               type: array
-            env:
+              description: Artifact paths to upload (alternative field name)
+            artifact_paths:
               type: array
+              description: Artifact paths to upload (preferred field name)
+            env:
+              type: [array, object]
+              description: >
+                Environment variables. Array: ["KEY=value", "KEY"] or Map: {KEY: "value", KEY2: ~}
+                Array: KEY-only reads from OS. Map: use "KEY: ~" (null literal) to read from OS, "KEY: ''" for empty string.
     wait:
       type: boolean
     hooks:

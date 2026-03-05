@@ -45,7 +45,7 @@ For example, in the following configuration:
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.9.1:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "**/*"
@@ -72,13 +72,85 @@ This is a sub-section that provides configuration for running commands or trigge
 - [Group](https://buildkite.com/docs/pipelines/configure/step-types/group-step)
 - [Conditionals](https://buildkite.com/docs/pipelines/conditionals)
 
-:warning: This plugin may accept configurations that are not valid pipeline steps, this is a known issue to keep its code simple and flexible.
+#### Step Validation
+
+The plugin validates all step configurations before uploading the pipeline. Invalid steps are automatically skipped with a warning logged to the build output.
+
+**A valid step must have:**
+- A `command` or `commands` field (for command steps), OR
+- A `trigger` field (for trigger steps), OR
+- A `group` field with either:
+  - An action (`command`, `commands`, or `trigger`) directly on the group, OR
+  - Valid nested `steps`
+
+**Invalid configurations that will be skipped:**
+
+```yaml
+# ❌ Empty step - no action defined
+- path: "app/"
+  config:
+    label: "Deploy app"  # Only has a label, no command/trigger
+
+# ❌ Empty group - no action and no nested steps
+- path: "services/"
+  config:
+    group: "Deploy"
+    # Missing: steps array or action
+```
+
+**Valid configurations:**
+
+```yaml
+# ✅ Valid - has command
+- path: "app/"
+  config:
+    label: "Deploy app"
+    command: "echo deploying"
+
+# ✅ Valid - group with nested steps
+- path: "services/"
+  config:
+    group: "Deploy"
+    steps:
+      - command: "deploy.sh"
+```
+
+#### Plugins in Step Configurations
+
+The plugin preserves `plugins:` blocks when specified in command step configurations. This allows you to use Buildkite plugins within your monorepo-watched steps.
+
+**Example**
 
 ```yaml
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.9.1:
+          watch:
+            - path: services/api/
+              config:
+                command: "npm test"
+                plugins:
+                  - artifacts#v1.9.4:
+                      upload: "coverage/**/*"
+                  - docker-compose#v5.12.1:
+                      run: api
+            - path: services/web/
+              config:
+                command: "yarn build"
+                plugins:
+                  - docker#v5.13.0:
+                      image: "node:20"
+                      workdir: /app
+```
+
+When changes are detected in the watched paths, the plugin generates steps that include the specified plugins. The `plugins:` blocks are preserved exactly as configured.
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.9.1:
           watch:
             - path: app/
               config:
@@ -89,9 +161,9 @@ steps:
             - path: docker/
               config:
                 group: docker/**
-                steps:
+                steps:  # Required: groups must have either 'steps' or an action
                   - plugins:
-                      - docker#latest:
+                      - docker#v5.13.0:
                           build: service
                           push: service
                   - command: docker/run-e2e-tests.sh
@@ -109,7 +181,7 @@ steps:
 steps:
   - label: "Triggering pipelines with plugin"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.9.1:
           watch:
             - path: test/.buildkite/
               config: # Required [trigger step configuration]
@@ -138,7 +210,7 @@ The plugin supports conditional execution of pipeline steps using the `if` key, 
 steps:
   - label: "Triggering pipelines with plugin"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.9.1:
           diff: git diff --name-only HEAD~1
           watch:
             - path: services/api
@@ -164,11 +236,16 @@ Depending on your use case, you may want to determine the point where the branch
 
 Default: `git diff --name-only HEAD~1`
 
+The diff command must produce **newline-delimited output** with one file path per line. This is the format that `git diff --name-only` produces by default. Newline-delimited output is required for filenames containing spaces to be parsed correctly.
+
+Custom diff scripts should follow the same convention — print one path per line to standard output.
+
 #### Sample output
 
 ```
 README.md
 lib/trigger.bash
+directory/File Name With Spaces.md
 ```
 
 #### Example scripts
@@ -201,7 +278,7 @@ git diff --name-only "$LATEST_TAG"
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.9.1:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
@@ -228,7 +305,7 @@ A default `config` to run if no paths are matched, the `config` key is not requi
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.9.1:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "bar-service/"
@@ -250,7 +327,7 @@ The object values provided in this configuration will be appended to `env` prope
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.9.1:
           diff: "git diff --name-only HEAD~1"
           watch:
             - path: "foo-service/"
@@ -260,9 +337,88 @@ steps:
                 build:
                   message: "Deploying foo service"
                   env:
-                    - HELLO=123
-                    - AWS_REGION
+                    HELLO: 123
+                    AWS_REGION: ~  # Null literal reads from $AWS_REGION
 ```
+
+### Environment Variables
+
+Environment variables can be specified in two formats. Both formats are fully supported.
+
+#### Map Format (Recommended)
+
+The map format provides clean, readable syntax:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.9.1:
+          env:
+            NODE_ENV: production
+            API_URL: https://api.example.com
+            PORT: 8080
+            DEBUG: false
+            AWS_REGION: ~         # Null literal reads from $AWS_REGION
+            EMPTY_STRING: ""      # Empty string sets to literal ""
+          watch:
+            - path: "services/"
+              config:
+                command: "npm test"
+                env:
+                  TEST_ENV: integration
+                  MAX_WORKERS: 4
+```
+
+Map format features:
+- Clean YAML syntax using key-value pairs
+- Supports non-string values (numbers, booleans) which are converted to strings automatically
+- Null values read from OS environment: use `KEY: ~` (recommended YAML null literal)
+- The explicit `~` ensures nothing is accidentally added during pipeline processing
+- Note: Unlike array format, you cannot use just `KEY` alone - you must use a null value
+- Empty string (`""`) is treated as a literal empty string value
+- Whitespace in values is preserved
+- Recommended for new configurations
+
+#### Array Format (Fully Supported)
+
+The array format uses key=value syntax:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.9.1:
+          env:
+            - NODE_ENV=production
+            - API_URL=https://api.example.com
+            - AWS_REGION          # Key-only reads from $AWS_REGION
+          watch:
+            - path: "services/"
+              config:
+                command: "npm test"
+                env:
+                  - TEST_ENV=integration
+```
+
+Array format features:
+- Key-only entries (e.g., `AWS_REGION`) read from OS environment variables
+- Supports values with equals signs: `BUILD_ARGS=--arg1=val1`
+- Whitespace trimmed from keys and values automatically
+- Fully supported alongside map format
+
+#### Format Comparison
+
+| Feature | Map Format | Array Format |
+|---------|-----------|--------------|
+| Syntax | `KEY: value` | `KEY=value` |
+| OS env reading | Null literal (`KEY: ~`) | Key-only entries (`KEY`) |
+| Empty string | `KEY: ""` sets to `""` | `KEY=` sets to `""` |
+| Type support | Numbers, booleans | Strings only |
+| Whitespace | Preserved in values | Trimmed |
+| Readability | High | Medium |
+
+**Note:** The format is determined by YAML structure - you cannot mix array and map syntax at the same level. However, you can use different formats at different levels (e.g., map format at plugin level, array format at step level).
 
 ### `log_level` (optional)
 
@@ -272,7 +428,7 @@ Add `log_level` property to set the log level. Supported log levels are `debug` 
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.9.1:
           diff: "git diff --name-only HEAD~1"
           log_level: "debug" # defaults to "info"
           watch:
@@ -280,6 +436,62 @@ steps:
               config:
                 trigger: "deploy-foo-service"
 ```
+
+### `download` (optional)
+
+Default: `true`
+
+By setting `download` to `false`, the plugin will use a pre-installed binary instead of downloading it on each run. The binary `monorepo-diff-buildkite-plugin` must be available in your PATH (typically `/usr/bin`).
+
+This option is useful for:
+- Reducing build time by avoiding repeated downloads
+- Improving security by using pre-vetted binaries
+- Organizations with policies against runtime binary downloads
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.9.1:
+          download: false
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "foo-service/"
+              config:
+                trigger: "deploy-foo-service"
+```
+
+### Download Retry Behavior
+
+The plugin automatically retries binary downloads up to 3 times with a 5-second delay between attempts. This handles transient network issues when downloading from GitHub.
+
+### `verify_checksum` (optional)
+
+Default: `false`
+
+Enable SHA256 checksum verification for downloaded binaries to enhance security. When enabled, the plugin verifies checksums against those published in the GitHub release, providing protection against compromised artifacts, network attacks, and binary tampering.
+
+Checksum verification is performed for:
+- Newly downloaded binaries (fails and deletes binary on mismatch)
+- Cached binaries before reuse (automatically re-downloads on mismatch)
+- Pre-installed binaries when `download: false` (best-effort, non-blocking)
+
+To enable checksum verification:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.9.1:
+          verify_checksum: true  # Recommended for enhanced security
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "foo-service/"
+              config:
+                trigger: "deploy-foo-service"
+```
+
+If checksums are unavailable for a release or the SHA256 command is not found on the system, the plugin will warn but continue execution (graceful degradation).
 
 ### `hooks` (optional)
 
@@ -297,17 +509,95 @@ Default: `true`
 
 By setting `wait` to `true`, the build will wait until the triggered pipeline builds are successful before proceeding
 
+### `key` (optional)
+
+Add `key` to set the step or group key.
+
+```yaml
+steps:
+  - label: "Setting Key"
+    plugins:
+      - monorepo-diff#v1.9.1:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "bar-service/"
+              config:
+                key: echo-step
+                command: "echo deploy-bar"
+```
+
+### `secrets` (optional)
+
+Add `secrets` to inject [Buildkite Secrets](https://buildkite.com/docs/pipelines/security/secrets/buildkite-secrets) into your command steps. Secrets can be specified in two formats:
+
+**Array format** - secret names are used as environment variable names:
+
+```yaml
+steps:
+  - label: "Deploy with secrets"
+    plugins:
+      - monorepo-diff#v1.9.1:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "service/"
+              config:
+                command: "deploy.sh"
+                secrets:
+                  - API_ACCESS_TOKEN
+                  - DATABASE_PASSWORD
+```
+
+**Map format** - specify custom environment variable names:
+
+```yaml
+steps:
+  - label: "Deploy with secrets"
+    plugins:
+      - monorepo-diff#v1.9.1:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "service/"
+              config:
+                command: "deploy.sh"
+                secrets:
+                  MY_API_KEY: api_access_token_secret
+                  DB_PASS: database_password_secret
+```
+
+Secrets also work within grouped steps:
+
+```yaml
+steps:
+  - label: "Deploy services"
+    plugins:
+      - monorepo-diff#v1.9.1:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "services/"
+              config:
+                group: "Deploy"
+                steps:
+                  - command: "deploy-uat.sh"
+                    label: "Deploy UAT"
+                    secrets:
+                      - UAT_DB_HOST
+                  - command: "deploy-prod.sh"
+                    label: "Deploy Prod"
+                    secrets:
+                      DB_HOST: prod_db_host_secret
+```
+
 ## Example
 
 ```yaml
 steps:
   - label: "Triggering pipelines"
     plugins:
-      - monorepo-diff#v1.5.2:
+      - monorepo-diff#v1.9.1:
           diff: "git diff --name-only $(head -n 1 last_successful_build)"
           interpolation: false
           env:
-            - env1=env-1 # this will be appended to all env configuration
+            env1: env-1  # this will be appended to all env configuration
           hooks:
             - command: "echo $(git rev-parse HEAD) > last_successful_build"
           watch:
@@ -317,6 +607,7 @@ steps:
               config:
                 command: "buildkite-agent pipeline upload ops/.buildkite/pipeline.yml"
                 label: "Upload pipeline"
+                key: pipeline-upload
                 # following configs are available in command. notify is not available in trigger step
                 notify:
                   - basecamp_campfire: https://basecamp-url
@@ -337,9 +628,84 @@ steps:
                 artifacts:
                   - "logs/*"
                 env:
-                  - FOO=bar
+                  FOO: bar
 
           wait: true
+```
+
+**Note:** This plugin accepts both `artifact_paths` and `artifacts` field names for backward compatibility:
+
+```yaml
+# Preferred - use "artifact_paths":
+- path: "app/"
+  config:
+    command: "npm test"
+    artifact_paths:
+      - "logs/**/*"
+
+# Also supported - "artifacts":
+- path: "app/"
+  config:
+    command: "npm test"
+    artifacts:
+      - "logs/**/*"
+```
+
+Both field names are supported by Buildkite. The generated pipeline YAML will use `artifact_paths`.
+
+### `binary_folder` (optional)
+
+Default: `BUILDKITE_PLUGINS_PATH`
+
+This is the filesystem folder where the Go binary will be kept.
+
+## Example
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.9.1:
+          binary_folder: "/var/buildkite-agent"
+          watch:
+            - path: "bar-service/"
+              config:
+                key: echo-step
+                command: "echo deploy-bar"
+```
+
+## Troubleshooting
+
+### "Skipping invalid step" warnings
+
+If you see warnings like `Skipping invalid step: empty step configuration`, check that your step configuration includes:
+
+1. For command steps: `command` or `commands` field
+2. For trigger steps: `trigger` field
+3. For group steps: `group` field with either `steps` array or an action
+
+**Common issues:**
+
+- Forgetting to add `command:` or `trigger:` inside the `config` block
+- Creating empty groups without nested steps
+- Using only metadata fields like `label`, `key`, or `env` without an action
+
+**Example of fixing an invalid configuration:**
+
+```yaml
+# ❌ Invalid - missing action
+- path: "app/"
+  config:
+    label: "Deploy app"
+    env:
+      - ENV=production
+
+# ✅ Fixed - added command
+- path: "app/"
+  config:
+    label: "Deploy app"
+    command: "deploy.sh"
+    env:
+      - ENV=production
 ```
 
 ## Compatibility

@@ -76,25 +76,97 @@ type StepNotify struct {
 
 // Step is buildkite pipeline definition
 type Step struct {
-	Group     string                   `yaml:"group,omitempty"`
-	Trigger   string                   `yaml:"trigger,omitempty"`
-	Label     string                   `yaml:"label,omitempty"`
-	Branches  string                   `yaml:"branches,omitempty"`
-	Condition string                   `json:"if,omitempty" yaml:"if,omitempty"`
-	Build     Build                    `yaml:"build,omitempty"`
-	Command   interface{}              `yaml:"command,omitempty"`
-	Commands  interface{}              `yaml:"commands,omitempty"`
-	Agents    Agent                    `yaml:"agents,omitempty"`
-	Artifacts []string                 `yaml:"artifacts,omitempty"`
-	RawEnv    interface{}              `json:"env" yaml:",omitempty"`
-	Plugins   []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
-	Env       map[string]string        `yaml:"env,omitempty"`
-	Async     bool                     `yaml:"async,omitempty"`
-	SoftFail  interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
-	RawNotify []map[string]interface{} `json:"notify" yaml:",omitempty"`
-	Notify    []StepNotify             `yaml:"notify,omitempty"`
-	DependsOn interface{}              `json:"depends_on" yaml:"depends_on,omitempty"`
-	Steps     []Step                   `yaml:"steps,omitempty"`
+	Group         string                   `yaml:"group,omitempty"`
+	Trigger       string                   `yaml:"trigger,omitempty"`
+	Label         string                   `yaml:"label,omitempty"`
+	Branches      string                   `yaml:"branches,omitempty"`
+	Condition     string                   `json:"if,omitempty" yaml:"if,omitempty"`
+	Build         Build                    `yaml:"build,omitempty"`
+	Command       interface{}              `yaml:"command,omitempty"`
+	Commands      interface{}              `yaml:"commands,omitempty"`
+	Agents        Agent                    `yaml:"agents,omitempty"`
+	ArtifactPaths []string                 `json:"artifact_paths" yaml:"artifact_paths,omitempty"`
+	RawEnv        interface{}              `json:"env" yaml:",omitempty"`
+	Plugins       []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
+	Env           map[string]string        `yaml:"env,omitempty"`
+	Async         bool                     `yaml:"async,omitempty"`
+	SoftFail      interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
+	RawNotify     []map[string]interface{} `json:"notify" yaml:",omitempty"`
+	Notify        []StepNotify             `yaml:"notify,omitempty"`
+	DependsOn     interface{}              `json:"depends_on" yaml:"depends_on,omitempty"`
+	Key           string                   `yaml:"key,omitempty"`
+	Secrets       interface{}              `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+	Steps         []Step                   `yaml:"steps,omitempty"`
+}
+
+// isValid checks if a step has required fields (command, trigger, or group with steps)
+func (s Step) isValid() bool {
+	if s.Group != "" {
+		return s.hasValidNesting()
+	}
+	return s.hasAction()
+}
+
+// hasAction checks if a step has a command or trigger
+func (s Step) hasAction() bool {
+	return s.Command != nil || s.Commands != nil || s.Trigger != ""
+}
+
+// hasValidNesting validates group step nesting
+func (s Step) hasValidNesting() bool {
+	if s.hasAction() {
+		return true
+	}
+
+	if len(s.Steps) > 0 {
+		for _, nestedStep := range s.Steps {
+			if !nestedStep.isValid() {
+				return false
+			}
+		}
+		return true
+	}
+
+	return false
+}
+
+// UnmarshalJSON handles both "artifacts" and "artifact_paths" field names for backward compatibility
+// Both fields are supported by the Buildkite API; "artifact_paths" is preferred per documentation
+func (step *Step) UnmarshalJSON(data []byte) error {
+	// Check which fields are present without full unmarshaling
+	var fieldCheck map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fieldCheck); err != nil {
+		return err
+	}
+
+	_, hasArtifacts := fieldCheck["artifacts"]
+	_, hasArtifactPaths := fieldCheck["artifact_paths"]
+
+	// Validate that both fields are not specified
+	if hasArtifacts && hasArtifactPaths {
+		return errors.New("cannot specify both 'artifacts' and 'artifact_paths'; please use 'artifact_paths'")
+	}
+
+	// Use a type alias to avoid infinite recursion
+	type stepAlias Step
+
+	// Unmarshal the main struct (this will populate artifact_paths if present)
+	if err := json.Unmarshal(data, (*stepAlias)(step)); err != nil {
+		return err
+	}
+
+	// If only "artifacts" was specified, manually extract and use it
+	if hasArtifacts && !hasArtifactPaths {
+		var temp struct {
+			Artifacts []string `json:"artifacts"`
+		}
+		if err := json.Unmarshal(data, &temp); err != nil {
+			return err
+		}
+		step.ArtifactPaths = temp.Artifacts
+	}
+
+	return nil
 }
 
 // Agent is Buildkite agent definition
@@ -122,7 +194,9 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 		Interpolation: true,
 	}
 
-	_ = json.Unmarshal(data, def)
+	if err := json.Unmarshal(data, def); err != nil {
+		return err
+	}
 
 	*plugin = Plugin(*def)
 
@@ -233,7 +307,7 @@ func initializePlugin(data string) (Plugin, error) {
 
 				if err := json.Unmarshal(pluginConfig, &plugin); err != nil {
 					log.Debug(err)
-					return Plugin{}, errors.New("failed to parse plugin configuration")
+					return Plugin{}, err
 				}
 
 				return plugin, nil
@@ -347,12 +421,17 @@ func setBuild(build *Build) {
 	}
 }
 
-// processNestedStepsEnv recursively processes environment variables for nested steps
-func processNestedStepsEnv(steps []Step, env map[string]string) {
+// processNestedSteps recursively processes nested steps, handling environment variables and notify configurations
+func processNestedSteps(steps []Step, env map[string]string) {
 	for i := range steps {
 		// Parse the step's own env
 		steps[i].Env, _ = parseEnv(steps[i].RawEnv)
 		steps[i].Build.Env, _ = parseEnv(steps[i].Build.RawEnv)
+
+		// Process notify for nested steps
+		if steps[i].RawNotify != nil {
+			setNotify(&steps[i].Notify, &steps[i].RawNotify)
+		}
 
 		// Append top-level env to this step
 		for key, value := range env {
@@ -375,7 +454,7 @@ func processNestedStepsEnv(steps []Step, env map[string]string) {
 
 		// Recursively process any nested steps
 		if len(steps[i].Steps) > 0 {
-			processNestedStepsEnv(steps[i].Steps, env)
+			processNestedSteps(steps[i].Steps, env)
 		}
 	}
 }
@@ -406,9 +485,9 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 
 	watch.Step.RawEnv = nil
 	watch.Step.Build.RawEnv = nil
-	// Process nested steps' environment variables
+	// Process nested steps
 	if len(watch.Step.Steps) > 0 {
-		processNestedStepsEnv(watch.Step.Steps, env)
+		processNestedSteps(watch.Step.Steps, env)
 	}
 	watch.RawPath = nil
 	watch.RawSkipPath = nil
@@ -430,32 +509,79 @@ func appendMetadata(watch *WatchConfig, metadata map[string]string) {
 	}
 }
 
-// parse env in format from env=env-value to map[env] = env-value
+// parseEnv converts env configuration from various formats to map[string]string.
+// Supports two formats:
+//   - Array format: ["KEY=value", "KEY2"] - existing format, KEY2 reads from OS env
+//   - Map format: {"KEY": "value", "KEY2": nil} - new format, only nil reads from OS env
 func parseEnv(raw interface{}) (map[string]string, error) {
 	if raw == nil {
 		return nil, nil
 	}
 
-	if _, ok := raw.([]interface{}); !ok {
-		return nil, errors.New("failed to parse plugin configuration")
-	}
-
-	result := make(map[string]string)
-	for _, v := range raw.([]interface{}) {
-		split := strings.Split(v.(string), "=")
-		key, value := strings.TrimSpace(split[0]), split[1:]
-
-		// only key exists. set value from env
-		if len(key) > 0 && len(value) == 0 {
-			result[key] = env(key, "")
+	switch v := raw.(type) {
+	case map[string]string:
+		// Direct string map - all values are literal (including empty strings)
+		result := make(map[string]string, len(v))
+		for k, val := range v {
+			key := strings.TrimSpace(k)
+			if key == "" {
+				continue
+			}
+			// Preserve all values including empty strings
+			result[key] = val
 		}
+		return result, nil
 
-		if len(value) > 0 {
-			result[key] = strings.TrimSpace(value[0])
+	case map[string]interface{}:
+		// Generic map - only nil reads from OS environment
+		result := make(map[string]string, len(v))
+		for k, val := range v {
+			key := strings.TrimSpace(k)
+			if key == "" {
+				continue
+			}
+			// Only null values read from OS environment
+			if val == nil {
+				result[key] = env(key, "")
+			} else {
+				// Convert to string, preserving empty strings
+				result[key] = fmt.Sprintf("%v", val)
+			}
 		}
-	}
+		return result, nil
 
-	return result, nil
+	case []interface{}:
+		// Array format - preserve existing behavior exactly
+		result := make(map[string]string)
+		for _, item := range v {
+			str, ok := item.(string)
+			if !ok {
+				continue
+			}
+
+			split := strings.SplitN(str, "=", 2)
+			key := strings.TrimSpace(split[0])
+
+			if key == "" {
+				continue
+			}
+
+			// Only key exists - read from OS environment
+			if len(split) == 1 {
+				result[key] = env(key, "")
+				continue
+			}
+
+			// Key=value - trim both (backwards compatibility)
+			if len(split) == 2 {
+				result[key] = strings.TrimSpace(split[1])
+			}
+		}
+		return result, nil
+
+	default:
+		return nil, errors.New("env configuration must be an array of strings (e.g., ['KEY=value']) or a map (e.g., {KEY: 'value'})")
+	}
 }
 
 // parse metadata in format from key:value to map[key] = value
