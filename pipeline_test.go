@@ -993,6 +993,61 @@ func TestGeneratePipelineWithNotifyInGroup(t *testing.T) {
 	assert.Contains(t, output, "context: buildkite/test/status")
 }
 
+func TestGeneratePipelineWithPlugins(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo deploy",
+			Label:   "Deploy",
+			Plugins: []map[string]interface{}{
+				{"docker#v5.13.0": map[string]interface{}{
+					"image":   "node:20",
+					"workdir": "/app",
+				}},
+			},
+		},
+		{
+			Trigger: "downstream-pipeline",
+			Label:   "Trigger downstream",
+			Plugins: []map[string]interface{}{
+				{"some-plugin#v1.0.0": map[string]interface{}{
+					"setting": "value",
+				}},
+			},
+		},
+	}
+
+	want := `steps:
+    - label: Deploy
+      command: echo deploy
+      plugins:
+        - docker#v5.13.0:
+            image: node:20
+            workdir: /app
+    - trigger: downstream-pipeline
+      label: Trigger downstream
+      plugins:
+        - some-plugin#v1.0.0:
+            setting: value
+`
+
+	plugin := Plugin{}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+	t.Log("Generated pipeline:\n" + string(got))
+	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
+}
+
 func TestFilterValidSteps_AllValid(t *testing.T) {
 	steps := []Step{
 		{Command: "echo valid 1"},
