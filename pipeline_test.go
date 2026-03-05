@@ -61,13 +61,16 @@ func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
 		Expect("pipeline", "upload", "pipeline.txt").
 		AndExitWith(0)
 
-	cmd, args, err := uploadPipeline(plugin, mockGeneratePipeline)
+	cmd, args, pipelinePath, err := uploadPipeline(plugin, mockGeneratePipeline)
+	defer os.Remove(pipelinePath)
 
 	assert.Equal(t, "buildkite-agent", cmd)
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt"}, args)
 	assert.NoError(t, err)
 
 	require.NoError(t, agent.CheckAndClose(t))
+
+	validatePipelineWithAgent(t, pipelinePath)
 }
 
 func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T) {
@@ -84,18 +87,21 @@ func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T)
 		Expect("pipeline", "upload", "pipeline.txt", "--no-interpolation").
 		AndExitWith(0)
 
-	cmd, args, err := uploadPipeline(plugin, mockGeneratePipeline)
+	cmd, args, pipelinePath, err := uploadPipeline(plugin, mockGeneratePipeline)
+	defer os.Remove(pipelinePath)
 
 	assert.Equal(t, "buildkite-agent", cmd)
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt", "--no-interpolation"}, args)
 	assert.NoError(t, err)
 
 	require.NoError(t, agent.CheckAndClose(t))
+
+	validatePipelineWithAgent(t, pipelinePath)
 }
 
 func TestUploadPipelineCancelsIfThereIsNoDiffOutput(t *testing.T) {
 	plugin := Plugin{Diff: "echo"}
-	cmd, args, err := uploadPipeline(plugin, mockGeneratePipeline)
+	cmd, args, _, err := uploadPipeline(plugin, mockGeneratePipeline)
 
 	assert.Equal(t, "", cmd)
 	assert.Equal(t, []string{}, args)
@@ -104,7 +110,7 @@ func TestUploadPipelineCancelsIfThereIsNoDiffOutput(t *testing.T) {
 
 func TestUploadPipelineWithEmptyGeneratedPipeline(t *testing.T) {
 	plugin := Plugin{Diff: "echo ./bar-service"}
-	cmd, args, err := uploadPipeline(plugin, generatePipeline)
+	cmd, args, _, err := uploadPipeline(plugin, generatePipeline)
 
 	assert.Equal(t, "", cmd)
 	assert.Equal(t, []string{}, args)

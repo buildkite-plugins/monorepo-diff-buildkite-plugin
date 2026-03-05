@@ -47,39 +47,34 @@ func (n PluginNotify) MarshalYAML() (interface{}, error) {
 // PipelineGenerator generates pipeline file
 type PipelineGenerator func(steps []Step, plugin Plugin) (*os.File, bool, error)
 
-func uploadPipeline(plugin Plugin, generatePipeline PipelineGenerator) (string, []string, error) {
+func uploadPipeline(plugin Plugin, generatePipeline PipelineGenerator) (string, []string, string, error) {
 	diffOutput, err := diff(plugin.Diff)
 	if err != nil {
 		log.Fatal(err)
-		return "", []string{}, err
+		return "", []string{}, "", err
 	}
 
 	if len(diffOutput) < 1 {
 		log.Info("No changes detected. Skipping pipeline upload.")
-		return "", []string{}, nil
+		return "", []string{}, "", nil
 	}
 
 	log.Debug("Output from diff: \n" + strings.Join(diffOutput, "\n"))
 
 	steps, err := stepsToTrigger(diffOutput, plugin.Watch)
 	if err != nil {
-		return "", []string{}, err
+		return "", []string{}, "", err
 	}
 
 	pipeline, hasSteps, err := generatePipeline(steps, plugin)
 	if err != nil {
-		return "", []string{}, err
+		return "", []string{}, "", err
 	}
-	defer func() {
-		if removeErr := os.Remove(pipeline.Name()); removeErr != nil {
-			log.Errorf("Failed to remove temporary pipeline file: %v", removeErr)
-		}
-	}()
 
 	if !hasSteps {
 		// Handle the case where no steps were provided
 		log.Info("No steps generated. Skipping pipeline upload.")
-		return "", []string{}, nil
+		return "", []string{}, "", nil
 	}
 
 	cmd := "buildkite-agent"
@@ -91,7 +86,7 @@ func uploadPipeline(plugin Plugin, generatePipeline PipelineGenerator) (string, 
 
 	_, err = executeCommand("buildkite-agent", args)
 
-	return cmd, args, err
+	return cmd, args, pipeline.Name(), err
 }
 
 func diff(command string) ([]string, error) {
