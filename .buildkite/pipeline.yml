@@ -22,6 +22,7 @@ steps:
           image: "golang"
           always-pull: true
           workdir: /plugin
+          mount-buildkite-agent: true
 
   - label: ":linux: Build"
     command: make local
