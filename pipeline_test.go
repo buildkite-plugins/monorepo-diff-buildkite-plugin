@@ -62,7 +62,9 @@ func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
 		AndExitWith(0)
 
 	cmd, args, pipelinePath, err := uploadPipeline(plugin, mockGeneratePipeline)
-	defer os.Remove(pipelinePath)
+	if pipelinePath != "" {
+		defer os.Remove(pipelinePath)
+	}
 
 	assert.Equal(t, "buildkite-agent", cmd)
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt"}, args)
@@ -88,7 +90,9 @@ func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T)
 		AndExitWith(0)
 
 	cmd, args, pipelinePath, err := uploadPipeline(plugin, mockGeneratePipeline)
-	defer os.Remove(pipelinePath)
+	if pipelinePath != "" {
+		defer os.Remove(pipelinePath)
+	}
 
 	assert.Equal(t, "buildkite-agent", cmd)
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt", "--no-interpolation"}, args)
