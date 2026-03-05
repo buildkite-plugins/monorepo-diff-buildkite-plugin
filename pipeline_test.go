@@ -111,7 +111,10 @@ func TestUploadPipelineCancelsIfThereIsNoDiffOutput(t *testing.T) {
 
 func TestUploadPipelineWithEmptyGeneratedPipeline(t *testing.T) {
 	plugin := Plugin{Diff: "echo ./bar-service"}
-	cmd, args, _, err := uploadPipeline(plugin, generatePipeline)
+	cmd, args, pipelinePath, err := uploadPipeline(plugin, generatePipeline)
+	if pipelinePath != "" {
+		defer os.Remove(pipelinePath)
+	}
 
 	assert.Equal(t, "", cmd)
 	assert.Equal(t, []string{}, args)
@@ -847,6 +850,8 @@ func TestGeneratePipelineWithStepKey(t *testing.T) {
 
 	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithSecretsAsMap(t *testing.T) {
@@ -880,6 +885,8 @@ func TestGeneratePipelineWithSecretsAsMap(t *testing.T) {
 	assert.Contains(t, string(got), "secrets:")
 	assert.Contains(t, string(got), "DATABRICKS_HOST: databricks_host_secret")
 	assert.Contains(t, string(got), "DATABRICKS_TOKEN: databricks_token_secret")
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithSecretsAsArray(t *testing.T) {
@@ -914,6 +921,8 @@ func TestGeneratePipelineWithSecretsAsArray(t *testing.T) {
 
 	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithSecretsInGroup(t *testing.T) {
@@ -959,6 +968,8 @@ func TestGeneratePipelineWithSecretsInGroup(t *testing.T) {
 	assert.Contains(t, string(got), "command: echo deploy prod")
 	assert.Contains(t, string(got), "- PROD_DB_HOST")
 	assert.Contains(t, string(got), "- PROD_DB_PASS")
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithNotifyInGroup(t *testing.T) {
@@ -992,6 +1003,8 @@ func TestGeneratePipelineWithNotifyInGroup(t *testing.T) {
 	assert.NotContains(t, output, "rawnotify")
 	assert.Contains(t, output, "github_commit_status:")
 	assert.Contains(t, output, "context: buildkite/test/status")
+
+	validatePipelineWithAgent(t, tmp.Name())
 }
 
 func TestGeneratePipelineWithPlugins(t *testing.T) {
