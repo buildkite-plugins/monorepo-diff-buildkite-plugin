@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -41,11 +39,7 @@ func main() {
 		return
 	}
 
-	_, _, pipelinePath, err := uploadPipeline(plugin, generatePipeline)
-	if pipelinePath != "" {
-		defer os.Remove(pipelinePath)
-	}
-	if err != nil {
+	if _, _, err = uploadPipeline(plugin, generatePipeline); err != nil {
 		log.Fatalf("+++ failed to upload pipeline: %v", err)
 	}
 }

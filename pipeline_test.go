@@ -62,10 +62,7 @@ func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
 		Expect("pipeline", "upload", "pipeline.txt").
 		AndExitWith(0)
 
-	cmd, args, pipelinePath, err := uploadPipeline(plugin, mockGeneratePipeline)
-	if pipelinePath != "" {
-		defer os.Remove(pipelinePath)
-	}
+	cmd, args, err := uploadPipeline(plugin, mockGeneratePipeline)
 
 	assert.Equal(t, "buildkite-agent", cmd)
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt"}, args)
@@ -88,10 +85,7 @@ func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T)
 		Expect("pipeline", "upload", "pipeline.txt", "--no-interpolation").
 		AndExitWith(0)
 
-	cmd, args, pipelinePath, err := uploadPipeline(plugin, mockGeneratePipeline)
-	if pipelinePath != "" {
-		defer os.Remove(pipelinePath)
-	}
+	cmd, args, err := uploadPipeline(plugin, mockGeneratePipeline)
 
 	assert.Equal(t, "buildkite-agent", cmd)
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt", "--no-interpolation"}, args)
@@ -102,7 +96,7 @@ func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T)
 
 func TestUploadPipelineCancelsIfThereIsNoDiffOutput(t *testing.T) {
 	plugin := Plugin{Diff: "echo"}
-	cmd, args, _, err := uploadPipeline(plugin, mockGeneratePipeline)
+	cmd, args, err := uploadPipeline(plugin, mockGeneratePipeline)
 
 	assert.Equal(t, "", cmd)
 	assert.Equal(t, []string{}, args)
@@ -111,10 +105,7 @@ func TestUploadPipelineCancelsIfThereIsNoDiffOutput(t *testing.T) {
 
 func TestUploadPipelineWithEmptyGeneratedPipeline(t *testing.T) {
 	plugin := Plugin{Diff: "echo ./bar-service"}
-	cmd, args, pipelinePath, err := uploadPipeline(plugin, generatePipeline)
-	if pipelinePath != "" {
-		defer os.Remove(pipelinePath)
-	}
+	cmd, args, err := uploadPipeline(plugin, generatePipeline)
 
 	assert.Equal(t, "", cmd)
 	assert.Equal(t, []string{}, args)
