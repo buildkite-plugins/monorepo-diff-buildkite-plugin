@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -10,11 +11,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// validatePipelineWithAgent runs buildkite-agent pipeline upload --dry-run
+// to verify the generated YAML is structurally valid. Skips gracefully if
+// buildkite-agent is not installed.
+func validatePipelineWithAgent(t *testing.T, pipelinePath string) {
+	t.Helper()
+	agentPath, err := exec.LookPath("buildkite-agent")
+	if err != nil {
+		t.Log("buildkite-agent not installed; skipping dry-run validation")
+		return
+	}
+	// --agent-access-token is required by the agent even for --dry-run; "dummy" satisfies the check without a real token
+	cmd := exec.Command(agentPath, "pipeline", "upload", pipelinePath, "--dry-run", "--agent-access-token", "dummy")
+	out, err := cmd.CombinedOutput()
+	t.Log(string(out))
+	require.NoError(t, err, "Buildkite rejected generated YAML")
+}
+
 func mockGeneratePipeline(steps []Step, plugin Plugin) (*os.File, bool, error) {
-	mockFile, _ := os.Create("pipeline.txt")
-	defer func() {
-		_ = mockFile.Close()
-	}()
+	mockFile, err := os.Create("pipeline.txt")
+	if err != nil {
+		return nil, false, err
+	}
+
+	_, err = mockFile.WriteString(`steps:
+  - command: echo "hello"
+`)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if err := mockFile.Close(); err != nil {
+		return nil, false, err
+	}
 
 	return mockFile, true, nil
 }
@@ -23,9 +52,7 @@ func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
 	plugin := Plugin{Diff: "echo ./foo-service", Interpolation: true}
 
 	agent, err := bintest.NewMock("buildkite-agent")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	oldPath := os.Getenv("PATH")
 	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
@@ -41,18 +68,14 @@ func TestUploadPipelineCallsBuildkiteAgentCommand(t *testing.T) {
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt"}, args)
 	assert.NoError(t, err)
 
-	if err := agent.CheckAndClose(t); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, agent.CheckAndClose(t))
 }
 
 func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T) {
 	plugin := Plugin{Diff: "echo ./foo-service", Interpolation: false}
 
 	agent, err := bintest.NewMock("buildkite-agent")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	oldPath := os.Getenv("PATH")
 	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
@@ -68,9 +91,7 @@ func TestUploadPipelineCallsBuildkiteAgentCommandWithInterpolation(t *testing.T)
 	assert.Equal(t, []string{"pipeline", "upload", "pipeline.txt", "--no-interpolation"}, args)
 	assert.NoError(t, err)
 
-	if err := agent.CheckAndClose(t); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, agent.CheckAndClose(t))
 }
 
 func TestUploadPipelineCancelsIfThereIsNoDiffOutput(t *testing.T) {
@@ -580,7 +601,6 @@ func TestGeneratePipeline(t *testing.T) {
 	}
 
 	pipeline, _, err := generatePipeline(steps, plugin)
-
 	require.NoError(t, err)
 	defer func() {
 		if err = os.Remove(pipeline.Name()); err != nil {
@@ -624,7 +644,10 @@ steps:
     - command: cat ./file.txt
 `
 
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithNoStepsAndHooks(t *testing.T) {
@@ -648,14 +671,16 @@ func TestGeneratePipelineWithNoStepsAndHooks(t *testing.T) {
 	require.NoError(t, err)
 	defer func() {
 		if err = os.Remove(pipeline.Name()); err != nil {
-			t.Logf("failed to remove teme file: %v", err)
+			t.Logf("failed to remove temporary file: %v", err)
 		}
 	}()
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
-
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithNoStepsAndNoHooks(t *testing.T) {
@@ -676,8 +701,10 @@ func TestGeneratePipelineWithNoStepsAndNoHooks(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
-
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithCondition(t *testing.T) {
@@ -713,8 +740,10 @@ func TestGeneratePipelineWithCondition(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
-
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithDependsOn(t *testing.T) {
@@ -758,8 +787,10 @@ func TestGeneratePipelineWithDependsOn(t *testing.T) {
 
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
-
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithStepKey(t *testing.T) {
@@ -808,7 +839,10 @@ func TestGeneratePipelineWithStepKey(t *testing.T) {
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
 
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithSecretsAsMap(t *testing.T) {
@@ -842,6 +876,8 @@ func TestGeneratePipelineWithSecretsAsMap(t *testing.T) {
 	assert.Contains(t, string(got), "secrets:")
 	assert.Contains(t, string(got), "DATABRICKS_HOST: databricks_host_secret")
 	assert.Contains(t, string(got), "DATABRICKS_TOKEN: databricks_token_secret")
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithSecretsAsArray(t *testing.T) {
@@ -874,7 +910,10 @@ func TestGeneratePipelineWithSecretsAsArray(t *testing.T) {
 	got, err := os.ReadFile(pipeline.Name())
 	require.NoError(t, err)
 
+	t.Log("Generated pipeline:\n" + string(got))
 	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithSecretsInGroup(t *testing.T) {
@@ -920,6 +959,8 @@ func TestGeneratePipelineWithSecretsInGroup(t *testing.T) {
 	assert.Contains(t, string(got), "command: echo deploy prod")
 	assert.Contains(t, string(got), "- PROD_DB_HOST")
 	assert.Contains(t, string(got), "- PROD_DB_PASS")
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestGeneratePipelineWithNotifyInGroup(t *testing.T) {
@@ -953,6 +994,63 @@ func TestGeneratePipelineWithNotifyInGroup(t *testing.T) {
 	assert.NotContains(t, output, "rawnotify")
 	assert.Contains(t, output, "github_commit_status:")
 	assert.Contains(t, output, "context: buildkite/test/status")
+
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithPlugins(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo deploy",
+			Label:   "Deploy",
+			Plugins: []map[string]interface{}{
+				{"docker#v5.13.0": map[string]interface{}{
+					"image":   "node:20",
+					"workdir": "/app",
+				}},
+			},
+		},
+		{
+			Trigger: "downstream-pipeline",
+			Label:   "Trigger downstream",
+			Plugins: []map[string]interface{}{
+				{"some-plugin#v1.0.0": map[string]interface{}{
+					"setting": "value",
+				}},
+			},
+		},
+	}
+
+	want := `steps:
+    - label: Deploy
+      command: echo deploy
+      plugins:
+        - docker#v5.13.0:
+            image: node:20
+            workdir: /app
+    - trigger: downstream-pipeline
+      label: Trigger downstream
+      plugins:
+        - some-plugin#v1.0.0:
+            setting: value
+`
+
+	plugin := Plugin{}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+	t.Log("Generated pipeline:\n" + string(got))
+	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
 }
 
 func TestFilterValidSteps_AllValid(t *testing.T) {

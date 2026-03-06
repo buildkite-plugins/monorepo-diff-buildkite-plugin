@@ -77,7 +77,6 @@ func uploadPipeline(plugin Plugin, generatePipeline PipelineGenerator) (string, 
 	}()
 
 	if !hasSteps {
-		// Handle the case where no steps were provided
 		log.Info("No steps generated. Skipping pipeline upload.")
 		return "", []string{}, nil
 	}
