@@ -1253,3 +1253,48 @@ func TestStepsToTrigger_ValidAndInvalidStepsMixed(t *testing.T) {
 	assert.True(t, hasAppStep)
 	assert.True(t, hasDeployStep)
 }
+
+func TestGeneratePipelineWithRetry(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo deploy",
+			Label:   "Deploy",
+			Retry: map[string]interface{}{
+				"automatic": []interface{}{
+					map[string]interface{}{"exit_status": -1, "limit": 2},
+					map[string]interface{}{"exit_status": 143, "limit": 2, "signal_reason": "agent_stop"},
+				},
+			},
+		},
+	}
+
+	want := `steps:
+    - label: Deploy
+      command: echo deploy
+      retry:
+        automatic:
+            - exit_status: -1
+              limit: 2
+            - exit_status: 143
+              limit: 2
+              signal_reason: agent_stop
+`
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	t.Log("Generated pipeline:\n" + string(got))
+	assert.Equal(t, want, string(got))
+
+	validatePipelineWithAgent(t, pipeline.Name())
+}

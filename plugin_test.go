@@ -116,6 +116,12 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						"soft_fail": [{
 							"exit_status": "*"
 						}],
+						"retry": {
+							"automatic": [
+								{"exit_status": -1, "limit": 2},
+								{"exit_status": 143, "limit": 2, "signal_reason": "agent_stop"}
+							]
+						},
 						"notify": [
 							{ "email": "foo@gmail.com" },
 							{ "email": "bar@gmail.com" },
@@ -237,6 +243,12 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						"hi":   "bye",
 					},
 					SoftFail: []interface{}{map[string]interface{}{"exit_status": "*"}},
+					Retry: map[string]interface{}{
+						"automatic": []interface{}{
+							map[string]interface{}{"exit_status": float64(-1), "limit": float64(2)},
+							map[string]interface{}{"exit_status": float64(143), "limit": float64(2), "signal_reason": "agent_stop"},
+						},
+					},
 					Notify: []StepNotify{
 						{Basecamp: "https://basecamp-url"},
 						{GithubStatus: GithubStatusNotification{Context: "my-custom-status"}},
