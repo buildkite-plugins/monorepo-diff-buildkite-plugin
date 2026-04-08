@@ -998,6 +998,34 @@ func TestGeneratePipelineWithNotifyInGroup(t *testing.T) {
 	validatePipelineWithAgent(t, tmp.Name())
 }
 
+func TestGeneratePipelineWithKeyInGroup(t *testing.T) {
+	steps := []Step{{
+		Group: "Test Group",
+		Key:   "test-group",
+		Steps: []Step{{
+			Label:   "Run Tests",
+			Command: "echo 'test'",
+		}},
+	}}
+
+	plugin := Plugin{}
+
+	tmp, hasPipeline, err := generatePipeline(steps, plugin)
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+
+	output := string(content)
+	assert.Contains(t, output, "group: Test Group")
+	assert.Contains(t, output, "key: test-group")
+	assert.Contains(t, output, "label: Run Tests")
+
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
 func TestGeneratePipelineWithPlugins(t *testing.T) {
 	steps := []Step{
 		{
