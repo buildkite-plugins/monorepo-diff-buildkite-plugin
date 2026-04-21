@@ -46,9 +46,15 @@ type WatchConfig struct {
 }
 
 type Group struct {
-	Label string `yaml:"group"`
-	Key   string `yaml:"key,omitempty"`
-	Steps []Step `yaml:"steps"`
+	Label                  string       `yaml:"group"`
+	Key                    string       `yaml:"key,omitempty"`
+	DependsOn              interface{}  `yaml:"depends_on,omitempty"`
+	Condition              string       `yaml:"if,omitempty"`
+	IfChanged              interface{}  `yaml:"if_changed,omitempty"`
+	AllowDependencyFailure bool         `yaml:"allow_dependency_failure,omitempty"`
+	Notify                 []StepNotify `yaml:"notify,omitempty"`
+	Skip                   interface{}  `yaml:"skip,omitempty"`
+	Steps                  []Step       `yaml:"steps"`
 }
 
 // GithubStatusNotification is notification config for github_commit_status
@@ -77,28 +83,31 @@ type StepNotify struct {
 
 // Step is buildkite pipeline definition
 type Step struct {
-	Group         string                   `yaml:"group,omitempty"`
-	Trigger       string                   `yaml:"trigger,omitempty"`
-	Label         string                   `yaml:"label,omitempty"`
-	Branches      string                   `yaml:"branches,omitempty"`
-	Condition     string                   `json:"if,omitempty" yaml:"if,omitempty"`
-	Build         Build                    `yaml:"build,omitempty"`
-	Command       interface{}              `yaml:"command,omitempty"`
-	Commands      interface{}              `yaml:"commands,omitempty"`
-	Agents        Agent                    `yaml:"agents,omitempty"`
-	ArtifactPaths []string                 `json:"artifact_paths" yaml:"artifact_paths,omitempty"`
-	RawEnv        interface{}              `json:"env" yaml:",omitempty"`
-	Plugins       []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
-	Env           map[string]string        `yaml:"env,omitempty"`
-	Async         bool                     `yaml:"async,omitempty"`
-	SoftFail      interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
-	Retry         interface{}              `json:"retry,omitempty" yaml:"retry,omitempty"`
-	RawNotify     []map[string]interface{} `json:"notify" yaml:",omitempty"`
-	Notify        []StepNotify             `yaml:"notify,omitempty"`
-	DependsOn     interface{}              `json:"depends_on" yaml:"depends_on,omitempty"`
-	Key           string                   `yaml:"key,omitempty"`
-	Secrets       interface{}              `json:"secrets,omitempty" yaml:"secrets,omitempty"`
-	Steps         []Step                   `yaml:"steps,omitempty"`
+	Group                  string                   `yaml:"group,omitempty"`
+	Trigger                string                   `yaml:"trigger,omitempty"`
+	Label                  string                   `yaml:"label,omitempty"`
+	Branches               string                   `yaml:"branches,omitempty"`
+	Condition              string                   `json:"if,omitempty" yaml:"if,omitempty"`
+	Build                  Build                    `yaml:"build,omitempty"`
+	Command                interface{}              `yaml:"command,omitempty"`
+	Commands               interface{}              `yaml:"commands,omitempty"`
+	Agents                 Agent                    `yaml:"agents,omitempty"`
+	ArtifactPaths          []string                 `json:"artifact_paths" yaml:"artifact_paths,omitempty"`
+	RawEnv                 interface{}              `json:"env" yaml:",omitempty"`
+	Plugins                []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
+	Env                    map[string]string        `yaml:"env,omitempty"`
+	Async                  bool                     `yaml:"async,omitempty"`
+	SoftFail               interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
+	Retry                  interface{}              `json:"retry,omitempty" yaml:"retry,omitempty"`
+	RawNotify              []map[string]interface{} `json:"notify" yaml:",omitempty"`
+	Notify                 []StepNotify             `yaml:"notify,omitempty"`
+	DependsOn              interface{}              `json:"depends_on" yaml:"depends_on,omitempty"`
+	Key                    string                   `yaml:"key,omitempty"`
+	Secrets                interface{}              `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+	AllowDependencyFailure bool                     `json:"allow_dependency_failure,omitempty" yaml:"allow_dependency_failure,omitempty"`
+	IfChanged              interface{}              `json:"if_changed,omitempty" yaml:"if_changed,omitempty"`
+	Skip                   interface{}              `json:"skip,omitempty" yaml:"skip,omitempty"`
+	Steps                  []Step                   `yaml:"steps,omitempty"`
 }
 
 // isValid checks if a step has required fields (command, trigger, or group with steps)
