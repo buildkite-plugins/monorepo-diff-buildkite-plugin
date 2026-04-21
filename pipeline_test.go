@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/buildkite/bintest/v3"
@@ -1024,6 +1025,193 @@ func TestGeneratePipelineWithKeyInGroup(t *testing.T) {
 	assert.Contains(t, output, "label: Run Tests")
 
 	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithDependsOnInGroup(t *testing.T) {
+	steps := []Step{{
+		Group:     "Test Group",
+		DependsOn: "build",
+		Steps: []Step{{
+			Label:   "Run Tests",
+			Command: "echo 'test'",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+
+	output := string(content)
+	assert.Contains(t, output, "group: Test Group")
+	assert.Contains(t, output, "depends_on: build")
+	assert.Equal(t, 1, strings.Count(output, "depends_on:"), "depends_on should appear only at group level, not duplicated on inline child step")
+
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithIfInGroup(t *testing.T) {
+	steps := []Step{{
+		Group:     "Test Group",
+		Condition: `build.branch == "main"`,
+		Steps: []Step{{
+			Label:   "Run Tests",
+			Command: "echo 'test'",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+
+	output := string(content)
+	assert.Contains(t, output, "group: Test Group")
+	assert.Contains(t, output, `if: build.branch == "main"`)
+	assert.Equal(t, 1, strings.Count(output, "if:"), "if should appear only at group level, not duplicated on inline child step")
+
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithNotifyAtGroupLevel(t *testing.T) {
+	steps := []Step{{
+		Group: "Test Group",
+		Notify: []StepNotify{{
+			GithubStatus: GithubStatusNotification{
+				Context: "buildkite/group/status",
+			},
+		}},
+		Steps: []Step{{
+			Label:   "Run Tests",
+			Command: "echo 'test'",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+
+	output := string(content)
+	assert.Contains(t, output, "group: Test Group")
+	assert.Contains(t, output, "notify:")
+	assert.Contains(t, output, "context: buildkite/group/status")
+	assert.NotContains(t, output, "rawnotify")
+
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithAllowDependencyFailureInGroup(t *testing.T) {
+	steps := []Step{{
+		Group:                  "Test Group",
+		AllowDependencyFailure: true,
+		Steps: []Step{{
+			Label:   "Run Tests",
+			Command: "echo 'test'",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+
+	output := string(content)
+	assert.Contains(t, output, "group: Test Group")
+	assert.Contains(t, output, "allow_dependency_failure: true")
+	assert.Equal(t, 1, strings.Count(output, "allow_dependency_failure:"), "allow_dependency_failure should appear only at group level")
+
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithIfChangedInGroup(t *testing.T) {
+	steps := []Step{{
+		Group:     "Test Group",
+		IfChanged: "services/api/**",
+		Steps: []Step{{
+			Label:   "Run Tests",
+			Command: "echo 'test'",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+
+	output := string(content)
+	assert.Contains(t, output, "group: Test Group")
+	assert.Contains(t, output, "if_changed: services/api/**")
+	assert.Equal(t, 1, strings.Count(output, "if_changed:"), "if_changed should appear only at group level")
+
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithSkipInGroup(t *testing.T) {
+	t.Run("bool", func(t *testing.T) {
+		steps := []Step{{
+			Group: "Test Group",
+			Skip:  true,
+			Steps: []Step{{
+				Label:   "Run Tests",
+				Command: "echo 'test'",
+			}},
+		}}
+
+		tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+		assert.NoError(t, err)
+		assert.True(t, hasPipeline)
+		defer os.Remove(tmp.Name())
+
+		content, err := os.ReadFile(tmp.Name())
+		assert.NoError(t, err)
+
+		output := string(content)
+		assert.Contains(t, output, "group: Test Group")
+		assert.Contains(t, output, "skip: true")
+
+		validatePipelineWithAgent(t, tmp.Name())
+	})
+
+	t.Run("string reason", func(t *testing.T) {
+		steps := []Step{{
+			Group: "Test Group",
+			Skip:  "Skipping because reasons",
+			Steps: []Step{{
+				Label:   "Run Tests",
+				Command: "echo 'test'",
+			}},
+		}}
+
+		tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+		assert.NoError(t, err)
+		assert.True(t, hasPipeline)
+		defer os.Remove(tmp.Name())
+
+		content, err := os.ReadFile(tmp.Name())
+		assert.NoError(t, err)
+
+		output := string(content)
+		assert.Contains(t, output, "group: Test Group")
+		assert.Contains(t, output, "skip: Skipping because reasons")
+
+		validatePipelineWithAgent(t, tmp.Name())
+	})
 }
 
 func TestGeneratePipelineWithPlugins(t *testing.T) {
