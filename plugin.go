@@ -47,6 +47,7 @@ type WatchConfig struct {
 
 type Group struct {
 	Label string `yaml:"group"`
+	Key   string `yaml:"key,omitempty"`
 	Steps []Step `yaml:"steps"`
 }
 
