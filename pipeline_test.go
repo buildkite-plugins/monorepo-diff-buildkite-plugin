@@ -1281,3 +1281,54 @@ func TestStepsToTrigger_ValidAndInvalidStepsMixed(t *testing.T) {
 	assert.True(t, hasAppStep)
 	assert.True(t, hasDeployStep)
 }
+
+func TestGeneratePipelineWithRetry(t *testing.T) {
+	steps := []Step{
+		{
+			Command: "echo deploy",
+			Label:   "Deploy",
+			Retry: map[string]interface{}{
+				"automatic": []interface{}{
+					map[string]interface{}{"exit_status": -1, "limit": 2},
+					map[string]interface{}{"exit_status": 143, "limit": 2, "signal_reason": "agent_stop"},
+				},
+				"manual": map[string]interface{}{
+					"allowed":          true,
+					"reason":           "Retry after investigating",
+					"permit_on_passed": false,
+				},
+			},
+		},
+	}
+
+	plugin := Plugin{Wait: false}
+
+	pipeline, _, err := generatePipeline(steps, plugin)
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	t.Log("Generated pipeline:\n" + string(got))
+
+	// Verify key elements are present (map ordering may vary)
+	assert.Contains(t, string(got), "label: Deploy")
+	assert.Contains(t, string(got), "command: echo deploy")
+	assert.Contains(t, string(got), "retry:")
+	assert.Contains(t, string(got), "automatic:")
+	assert.Contains(t, string(got), "exit_status: -1")
+	assert.Contains(t, string(got), "limit: 2")
+	assert.Contains(t, string(got), "exit_status: 143")
+	assert.Contains(t, string(got), "signal_reason: agent_stop")
+	assert.Contains(t, string(got), "manual:")
+	assert.Contains(t, string(got), "allowed: true")
+	assert.Contains(t, string(got), "reason: Retry after investigating")
+	assert.Contains(t, string(got), "permit_on_passed: false")
+
+	validatePipelineWithAgent(t, pipeline.Name())
+}

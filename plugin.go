@@ -92,6 +92,7 @@ type Step struct {
 	Env           map[string]string        `yaml:"env,omitempty"`
 	Async         bool                     `yaml:"async,omitempty"`
 	SoftFail      interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
+	Retry         interface{}              `json:"retry,omitempty" yaml:"retry,omitempty"`
 	RawNotify     []map[string]interface{} `json:"notify" yaml:",omitempty"`
 	Notify        []StepNotify             `yaml:"notify,omitempty"`
 	DependsOn     interface{}              `json:"depends_on" yaml:"depends_on,omitempty"`
