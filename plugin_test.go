@@ -1941,3 +1941,26 @@ func TestStepMatrixRoundTripsToYAML(t *testing.T) {
 	assert.Contains(t, yamlStr, "- linux")
 	assert.Contains(t, yamlStr, "- windows")
 }
+
+func TestStepIsValid_WithPluginsOnly(t *testing.T) {
+	step := Step{
+		Label:  "Build CDK image",
+		Key:    "build_cdk_image",
+		Agents: Agent{"queue": "main"},
+		Plugins: []map[string]interface{}{
+			{"docker-compose#v5.12.1": map[string]interface{}{
+				"build": "cdk",
+				"push":  []string{"cdk:registry.example.com/cdk:latest"},
+			}},
+		},
+	}
+	assert.True(t, step.isValid())
+}
+
+func TestStepIsValid_EmptyPlugins(t *testing.T) {
+	step := Step{
+		Label:   "no plugins",
+		Plugins: []map[string]interface{}{},
+	}
+	assert.False(t, step.isValid())
+}
