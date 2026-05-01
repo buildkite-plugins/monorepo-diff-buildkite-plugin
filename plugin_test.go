@@ -1964,3 +1964,58 @@ func TestStepIsValid_EmptyPlugins(t *testing.T) {
 	}
 	assert.False(t, step.isValid())
 }
+
+func TestAppendEnv_PluginOnlyStep(t *testing.T) {
+	watch := WatchConfig{
+		Steps: []Step{{
+			Label: "Build CDK image",
+			Plugins: []map[string]interface{}{
+				{"docker-compose#v5.12.1": map[string]interface{}{"build": "cdk"}},
+			},
+		}},
+	}
+	appendEnv(&watch, map[string]string{"FOO": "bar"})
+	assert.Equal(t, map[string]string{"FOO": "bar"}, watch.Steps[0].Env)
+}
+
+func TestAppendEnv_PluginOnlyStep_DoesNotPropagateToTriggerBuild(t *testing.T) {
+	watch := WatchConfig{
+		Steps: []Step{{
+			Plugins: []map[string]interface{}{
+				{"docker-compose#v5.12.1": map[string]interface{}{"build": "cdk"}},
+			},
+		}},
+	}
+	appendEnv(&watch, map[string]string{"FOO": "bar"})
+	assert.Nil(t, watch.Steps[0].Build.Env)
+}
+
+func TestAppendEnv_PluginOnlyNestedStep(t *testing.T) {
+	watch := WatchConfig{
+		Steps: []Step{{
+			Group: "Build images",
+			Steps: []Step{{
+				Plugins: []map[string]interface{}{
+					{"docker-compose#v5.12.1": map[string]interface{}{"build": "cdk"}},
+				},
+			}},
+		}},
+	}
+	appendEnv(&watch, map[string]string{"FOO": "bar"})
+	assert.Equal(t, map[string]string{"FOO": "bar"}, watch.Steps[0].Steps[0].Env)
+	assert.True(t, watch.Steps[0].isValid())
+}
+
+func TestAppendEnv_TriggerWithPluginsPreservesTriggerEnv(t *testing.T) {
+	watch := WatchConfig{
+		Steps: []Step{{
+			Trigger: "downstream-pipeline",
+			Plugins: []map[string]interface{}{
+				{"some-plugin#v1.0.0": map[string]interface{}{}},
+			},
+		}},
+	}
+	appendEnv(&watch, map[string]string{"FOO": "bar"})
+	assert.Nil(t, watch.Steps[0].Env)
+	assert.Equal(t, map[string]string{"FOO": "bar"}, watch.Steps[0].Build.Env)
+}
