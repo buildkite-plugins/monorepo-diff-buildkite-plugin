@@ -1866,3 +1866,28 @@ func TestStepIsValid_EmptyPlugins(t *testing.T) {
 	}
 	assert.False(t, step.isValid())
 }
+
+func TestAppendEnv_PluginOnlyStep(t *testing.T) {
+	watch := WatchConfig{
+		Step: Step{
+			Label: "Build CDK image",
+			Plugins: []map[string]interface{}{
+				{"docker-compose#v5.12.1": map[string]interface{}{"build": "cdk"}},
+			},
+		},
+	}
+	appendEnv(&watch, map[string]string{"FOO": "bar"})
+	assert.Equal(t, map[string]string{"FOO": "bar"}, watch.Step.Env)
+}
+
+func TestAppendEnv_PluginOnlyStep_DoesNotPropagateToTriggerBuild(t *testing.T) {
+	watch := WatchConfig{
+		Step: Step{
+			Plugins: []map[string]interface{}{
+				{"docker-compose#v5.12.1": map[string]interface{}{"build": "cdk"}},
+			},
+		},
+	}
+	appendEnv(&watch, map[string]string{"FOO": "bar"})
+	assert.Nil(t, watch.Step.Build.Env)
+}

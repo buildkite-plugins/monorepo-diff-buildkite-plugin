@@ -437,7 +437,7 @@ func processNestedSteps(steps []Step, env map[string]string) {
 
 		// Append top-level env to this step
 		for key, value := range env {
-			if steps[i].Command != nil || steps[i].Commands != nil {
+			if steps[i].Command != nil || steps[i].Commands != nil || len(steps[i].Plugins) > 0 {
 				if steps[i].Env == nil {
 					steps[i].Env = make(map[string]string)
 				}
@@ -467,7 +467,7 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 	watch.Step.Build.Env, _ = parseEnv(watch.Step.Build.RawEnv)
 
 	for key, value := range env {
-		if watch.Step.Command != nil || watch.Step.Commands != nil {
+		if watch.Step.Command != nil || watch.Step.Commands != nil || len(watch.Step.Plugins) > 0 {
 			if watch.Step.Env == nil {
 				watch.Step.Env = make(map[string]string)
 			}
