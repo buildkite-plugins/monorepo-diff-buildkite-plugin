@@ -109,9 +109,9 @@ func (s Step) isValid() bool {
 	return s.hasAction()
 }
 
-// hasAction checks if a step has a command or trigger
+// hasAction checks if a step has a command, trigger, or plugins
 func (s Step) hasAction() bool {
-	return s.Command != nil || s.Commands != nil || s.Trigger != ""
+	return s.Command != nil || s.Commands != nil || s.Trigger != "" || len(s.Plugins) > 0
 }
 
 // hasValidNesting validates group step nesting
