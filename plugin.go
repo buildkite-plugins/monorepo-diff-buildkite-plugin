@@ -109,9 +109,9 @@ func (s Step) isValid() bool {
 	return s.hasAction()
 }
 
-// hasAction checks if a step has a command or trigger
+// hasAction checks if a step has a command, trigger, or plugins
 func (s Step) hasAction() bool {
-	return s.Command != nil || s.Commands != nil || s.Trigger != ""
+	return s.Command != nil || s.Commands != nil || s.Trigger != "" || len(s.Plugins) > 0
 }
 
 // hasValidNesting validates group step nesting
@@ -437,7 +437,7 @@ func processNestedSteps(steps []Step, env map[string]string) {
 
 		// Append top-level env to this step
 		for key, value := range env {
-			if steps[i].Command != nil || steps[i].Commands != nil {
+			if steps[i].Command != nil || steps[i].Commands != nil || len(steps[i].Plugins) > 0 {
 				if steps[i].Env == nil {
 					steps[i].Env = make(map[string]string)
 				}
@@ -467,7 +467,7 @@ func appendEnv(watch *WatchConfig, env map[string]string) {
 	watch.Step.Build.Env, _ = parseEnv(watch.Step.Build.RawEnv)
 
 	for key, value := range env {
-		if watch.Step.Command != nil || watch.Step.Commands != nil {
+		if watch.Step.Command != nil || watch.Step.Commands != nil || len(watch.Step.Plugins) > 0 {
 			if watch.Step.Env == nil {
 				watch.Step.Env = make(map[string]string)
 			}
