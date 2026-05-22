@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.10.0](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.9.1...v1.10.0) (2026-05-22)
+
+### Added
+* Add `retry` field support to step configuration [#167](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/167) ([ValentinLevitov](https://github.com/ValentinLevitov))
+* Support `key` attribute on group steps [#169](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/169) ([JonCubed](https://github.com/JonCubed))
+
+### Changed
+* Update tests to validate generated pipeline using pipeline upload dry run command [#134](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/134) ([nsuma8989](https://github.com/nsuma8989))
+* Update buildkite plugin secrets to v2.1.0 [#165](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/165) ([renovate[bot]](https://github.com/apps/renovate))
+* Update buildkite plugin secrets to v2.2.0 [#175](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/175) ([renovate[bot]](https://github.com/apps/renovate))
+* Update dependency go to v1.26.1 [#166](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/166) ([renovate[bot]](https://github.com/apps/renovate))
+* Update dependency go to v1.26.2 [#168](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/168) ([renovate[bot]](https://github.com/apps/renovate))
+* Update go toolchain directive to v1.26.3 [#174](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/174) ([renovate[bot]](https://github.com/apps/renovate))
+
 ## [v1.9.1](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.9.0...v1.9.1) (2026-03-02)
 
 ### Fixed
