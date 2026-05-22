@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v1.10.0](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.9.1...v1.10.0) (2026-05-21)
+## [v1.10.0](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.9.1...v1.10.0) (2026-05-22)
 
 ### Added
 * Add `retry` field support to step configuration [#167](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/167) ([ValentinLevitov](https://github.com/ValentinLevitov))
