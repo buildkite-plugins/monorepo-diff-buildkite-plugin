@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
+	"github.com/dlclark/regexp2"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
@@ -194,7 +195,7 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 			}
 
 			for _, f := range files {
-				exceptMatch, errExcept := matchPath(ex, f)
+				exceptMatch, errExcept := matchPath(ex, f, w.RegexPaths)
 				if errExcept != nil {
 					return nil, errExcept
 				}
@@ -212,11 +213,11 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 
 		for _, p := range w.Paths {
 			for _, f := range files {
-				match, err := matchPath(p, f)
+				match, err := matchPath(p, f, w.RegexPaths)
 
 				skip := false
 				for _, sp := range w.SkipPaths {
-					skipMatch, errSkip := matchPath(sp, f)
+					skipMatch, errSkip := matchPath(sp, f, w.RegexPaths)
 
 					if errSkip != nil {
 						return nil, errSkip
@@ -255,7 +256,19 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 }
 
 // matchPath checks if the file f matches the path p.
-func matchPath(p string, f string) (bool, error) {
+// If useRegex is true, p is treated as a regexp2 regular expression.
+func matchPath(p string, f string, useRegex bool) (bool, error) {
+	if useRegex {
+		re, err := regexp2.Compile(p, 0)
+		if err != nil {
+			return false, fmt.Errorf("regex path matching failed: %v", err)
+		}
+		match, err := re.MatchString(f)
+		if err != nil {
+			return false, fmt.Errorf("regex path matching failed: %v", err)
+		}
+		return match, nil
+	}
 	// If the path contains a glob, the `doublestar.Match`
 	// method is used to determine the match,
 	// otherwise `strings.HasPrefix` is used.

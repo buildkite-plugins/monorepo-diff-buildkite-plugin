@@ -48,6 +48,11 @@ configuration:
         path:
           type: [string, array]
           minimum: 1
+        regex_paths:
+          type: boolean
+          description: >
+            When true, path, skip_path, and except_path are treated as regexp2 regular expressions
+            instead of globs. Supports full PCRE syntax including lookaheads.
         config:
           type: object
           properties:

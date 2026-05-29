@@ -558,6 +558,180 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 	}
 }
 
+func TestRegexPaths(t *testing.T) {
+	testCases := map[string]struct {
+		ChangedFiles []string
+		WatchConfigs []WatchConfig
+		Expected     []Step
+		ExpectError  bool
+	}{
+		"matches path using regex with lookahead": {
+			ChangedFiles: []string{
+				"src/components/Button.tsx",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/(?!__tests__/).*\.[tj]sx?`},
+					RegexPaths: true,
+					Step:       Step{Trigger: "service-1"},
+				},
+			},
+			Expected: []Step{
+				{Trigger: "service-1"},
+			},
+		},
+		"does not match path excluded by negative lookahead": {
+			ChangedFiles: []string{
+				"src/__tests__/Button.test.tsx",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/(?!__tests__/).*\.[tj]sx?`},
+					RegexPaths: true,
+					Step:       Step{Trigger: "service-1"},
+				},
+			},
+			Expected: []Step{},
+		},
+		"matches customer example pattern": {
+			ChangedFiles: []string{
+				"src/components/Button.tsx",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/(?!pulumi|ci-generators|desktop|mobile|test)(?!.*\.test\.)(?!.*\.snap$)(?!.*/__test__/)(?!.*/__mocks__/)(?!.*/__snapshots__/).*\.[tj]sx?`},
+					RegexPaths: true,
+					Step:       Step{Trigger: "service-1"},
+				},
+			},
+			Expected: []Step{
+				{Trigger: "service-1"},
+			},
+		},
+		"skip_path regex excludes matched files": {
+			ChangedFiles: []string{
+				"src/components/Button.tsx",
+				"src/components/Button.test.tsx",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/.*\.[tj]sx?`},
+					SkipPaths:  []string{`.*\.test\.[tj]sx?`},
+					RegexPaths: true,
+					Step:       Step{Trigger: "service-1"},
+				},
+			},
+			Expected: []Step{
+				{Trigger: "service-1"},
+			},
+		},
+		"except_path regex prevents step from triggering": {
+			ChangedFiles: []string{
+				"src/generated/schema.ts",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:       []string{`src/.*`},
+					ExceptPaths: []string{`src/generated/.*`},
+					RegexPaths:  true,
+					Step:        Step{Trigger: "service-1"},
+				},
+			},
+			Expected: []Step{},
+		},
+		"invalid regex returns error": {
+			ChangedFiles: []string{
+				"src/components/Button.tsx",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/[invalid`},
+					RegexPaths: true,
+					Step:       Step{Trigger: "service-1"},
+				},
+			},
+			Expected:    []Step{},
+			ExpectError: true,
+		},
+		"regex_paths false uses existing glob behaviour": {
+			ChangedFiles: []string{
+				"src/components/Button.tsx",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/**/*.tsx`},
+					RegexPaths: false,
+					Step:       Step{Trigger: "service-1"},
+				},
+			},
+			Expected: []Step{
+				{Trigger: "service-1"},
+			},
+		},
+		"regex and non-regex watch blocks work independently": {
+			ChangedFiles: []string{
+				"src/components/Button.tsx",
+				"services/api/main.go",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/(?!__tests__/).*\.tsx`},
+					RegexPaths: true,
+					Step:       Step{Trigger: "frontend"},
+				},
+				{
+					Paths: []string{"services/api/"},
+					Step:  Step{Trigger: "backend"},
+				},
+			},
+			Expected: []Step{
+				{Trigger: "frontend"},
+				{Trigger: "backend"},
+			},
+		},
+		"invalid regex in skip_path returns error": {
+			ChangedFiles: []string{
+				"src/main.go",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/.*`},
+					SkipPaths:  []string{`src/[invalid`},
+					RegexPaths: true,
+					Step:       Step{Trigger: "service-1"},
+				},
+			},
+			Expected:    []Step{},
+			ExpectError: true,
+		},
+		"regex does not match unrelated file": {
+			ChangedFiles: []string{
+				"docs/readme.md",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/.*\.go`},
+					RegexPaths: true,
+					Step:       Step{Trigger: "service-1"},
+				},
+			},
+			Expected: []Step{},
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			steps, err := stepsToTrigger(tc.ChangedFiles, tc.WatchConfigs)
+			if tc.ExpectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.Expected, steps)
+			}
+		})
+	}
+}
+
 func TestGeneratePipeline(t *testing.T) {
 	steps := []Step{
 		{

@@ -43,6 +43,7 @@ type WatchConfig struct {
 	RawExceptPath interface{} `json:"except_path"`
 	SkipPaths     []string
 	ExceptPaths   []string
+	RegexPaths    bool        `json:"regex_paths"`
 }
 
 type Group struct {
