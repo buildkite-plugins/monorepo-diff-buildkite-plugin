@@ -7,6 +7,7 @@ toolchain go1.26.3
 require (
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/buildkite/bintest/v3 v3.3.0
+	github.com/dlclark/regexp2 v1.12.0
 	github.com/google/go-cmp v0.7.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
@@ -15,7 +16,6 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dlclark/regexp2 v1.12.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 )

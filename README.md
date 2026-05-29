@@ -58,7 +58,7 @@ steps:
       - monorepo-diff#v1.10.0:
           diff: "git diff --name-only HEAD~1"
           watch:
-            - path: "src/(?!pulumi|ci-generators|desktop|mobile|test)(?!.*\\.test\\.)(?!.*\\.snap$)(?!.*/__test__/)(?!.*/__mocks__/)(?!.*/__snapshots__/).*\\.[tj]sx?"
+            - path: "^src/(?!pulumi|ci-generators|desktop|mobile|test)(?!.*\\.test\\.)(?!.*\\.snap$)(?!.*/__test__/)(?!.*/__mocks__/)(?!.*/__snapshots__/).*\\.[tj]sx?"
               regex_paths: true
               config:
                 trigger: "frontend-pipeline"

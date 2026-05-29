@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/dlclark/regexp2"
@@ -261,8 +262,12 @@ func matchPath(p string, f string, useRegex bool) (bool, error) {
 	if useRegex {
 		re, err := regexp2.Compile(p, 0)
 		if err != nil {
-			return false, fmt.Errorf("regex path matching failed: %v", err)
+			if strings.Contains(p, "*") {
+				return false, fmt.Errorf("regex path matching failed for %q: %v (glob syntax is not supported when regex_paths is true)", p, err)
+			}
+			return false, fmt.Errorf("regex path matching failed for %q: %v", p, err)
 		}
+		re.MatchTimeout = 5 * time.Second
 		match, err := re.MatchString(f)
 		if err != nil {
 			return false, fmt.Errorf("regex path matching failed: %v", err)
