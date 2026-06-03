@@ -49,6 +49,8 @@ When `regex_paths: true` is set, except paths are also treated as regular expres
 
 Set to `true` to treat `path`, `skip_path`, and `except_path` as regular expressions instead of globs. Uses [regexp2](https://github.com/dlclark/regexp2) which supports full PCRE syntax including lookaheads and lookbehinds.
 
+Regex matching is unanchored: a pattern matches if it occurs anywhere in the file path, not only at the start. For example, `path: "src/.*"` matches `vendor/src/main.go` as well as `src/main.go`. Anchor with `^` (and `$` where needed) to match the full path, as in the example above.
+
 This is useful when the paths you want to match would require many glob patterns to express. For example, to match all TypeScript/JavaScript source files under `src/` while excluding test files, snapshots, and specific directories:
 
 ```yaml
