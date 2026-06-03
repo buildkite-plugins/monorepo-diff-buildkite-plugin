@@ -27,17 +27,46 @@ It defines a list of paths or path to monitor for changes in the monorepo. It ch
 
 A path or a list of paths to be watched, This part specifies which directory should be monitored. It can also be a glob pattern. For example specify `path: "**/*.md"` to match all markdown files. A list of paths can be provided to trigger the desired pipeline or run command or even do a pipeline upload.
 
+When `regex_paths: true` is set on the watch block, paths are treated as regular expressions instead of globs.
+
 ### `skip_path`
 
 A path or a list of paths to be ignored, which can be an exact path, or a glob.
 
 This is intended to be used in conjunction with `path`, and allows omitting specific paths from being matched.
 
+When `regex_paths: true` is set, skip paths are also treated as regular expressions.
+
 ### `except_path`
 
 A path or a list of paths to prevent the paths listed to be matched, which can be an exact path, or a glob.
 
 This is intended to be used in conjunction with `path`, and allows for creating exclusive matches with simpler rules when several files are modified in the same execution.
+
+When `regex_paths: true` is set, except paths are also treated as regular expressions.
+
+### `regex_paths`
+
+Set to `true` to treat `path`, `skip_path`, and `except_path` as regular expressions instead of globs. Uses [regexp2](https://github.com/dlclark/regexp2) which supports full PCRE syntax including lookaheads and lookbehinds.
+
+Regex matching is unanchored: a pattern matches if it occurs anywhere in the file path, not only at the start. For example, `path: "src/.*"` matches `vendor/src/main.go` as well as `src/main.go`. Anchor with `^` (and `$` where needed) to match the full path, as in the example above.
+
+This is useful when the paths you want to match would require many glob patterns to express. For example, to match all TypeScript/JavaScript source files under `src/` while excluding test files, snapshots, and specific directories:
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.10.0:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "^src/(?!pulumi|ci-generators|desktop|mobile|test)(?!.*\\.test\\.)(?!.*\\.snap$)(?!.*/__test__/)(?!.*/__mocks__/)(?!.*/__snapshots__/).*\\.[tj]sx?"
+              regex_paths: true
+              config:
+                trigger: "frontend-pipeline"
+```
+
+> **Note:** When `regex_paths: true`, all paths in that watch block must be valid regular expressions. Glob syntax (e.g. `**`) is not supported in regex mode.
 
 For example, in the following configuration:
 

@@ -1843,3 +1843,19 @@ func TestStepIsValid_OnlyMetadata(t *testing.T) {
 	}
 	assert.False(t, step.isValid())
 }
+
+func TestPluginParsesRegexPaths(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/.*\\.go",
+				"regex_paths": true,
+				"config": { "trigger": "service-1" }
+			}]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.True(t, got.Watch[0].RegexPaths)
+}
