@@ -1317,8 +1317,8 @@ func TestGeneratePipelineWithDependsOnListInGroup(t *testing.T) {
 	output := string(content)
 
 	assert.Contains(t, output, "group: Multi-dep Group")
-	assert.Contains(t, output, "build-a", "list-valued depends_on should be propagated to group step")
-	assert.Contains(t, output, "build-b", "list-valued depends_on should be propagated to group step")
+	assert.Contains(t, output, "- build-a", "list-valued depends_on should be propagated to group step")
+	assert.Contains(t, output, "- build-b", "list-valued depends_on should be propagated to group step")
 }
 
 func TestGeneratePipelineAllowDependencyFailureFalseOmitted(t *testing.T) {
@@ -1353,7 +1353,7 @@ func TestGeneratePipelineGroupAttributesNotDuplicatedOnNestedStep(t *testing.T) 
 		Group:                  "Deploy Group",
 		Command:                "echo deploy",
 		DependsOn:              "build",
-		Condition:              "build.branch == \"main\"",
+		Condition:              "build.branch == 'main'",
 		AllowDependencyFailure: true,
 		Notify: []StepNotify{{
 			Slack: "#deployments",
