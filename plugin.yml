@@ -56,8 +56,16 @@ configuration:
         config:
           type: object
           properties:
-            key: 
+            group:
               type: string
+            key:
+              type: string
+            depends_on:
+              type: [string, array]
+            if:
+              type: string
+            allow_dependency_failure:
+              type: boolean
             command:
               type: string
             trigger:

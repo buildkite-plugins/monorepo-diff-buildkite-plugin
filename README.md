@@ -257,6 +257,26 @@ In the example above,
 - The `deploy-api` trigger will only run on the main branch or branches matching `release/*`.
 - The `web deployment` command will run only if the build has a tag.
 
+`if` also works at the group step level, controlling whether the entire group runs:
+
+```yaml
+steps:
+  - label: "Triggering pipelines with plugin"
+    plugins:
+      - monorepo-diff#v1.10.0:
+          diff: git diff --name-only HEAD~1
+          watch:
+            - path: services/
+              config:
+                group: "Deploy Services"
+                if: build.branch == 'main'
+                steps:
+                  - command: deploy-uat.sh
+                    label: Deploy UAT
+                  - command: deploy-prod.sh
+                    label: Deploy Prod
+```
+
 #### `diff` (optional)
 
 This will run the script provided to determine the folder changes.
@@ -553,6 +573,47 @@ steps:
               config:
                 key: echo-step
                 command: "echo deploy-bar"
+```
+
+### `depends_on` (optional)
+
+Add `depends_on` to declare step or group dependencies. Accepts a single key string or a list of keys.
+
+```yaml
+steps:
+  - label: "Deploy"
+    plugins:
+      - monorepo-diff#v1.10.0:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "bar-service/"
+              config:
+                group: "Deploy Bar"
+                depends_on: "build-bar"
+                steps:
+                  - command: "echo deploy-bar"
+                    label: "Deploy Bar"
+```
+
+### `allow_dependency_failure` (optional)
+
+Set `allow_dependency_failure: true` to allow a step or group to run even if the steps it `depends_on` have failed.
+
+```yaml
+steps:
+  - label: "Deploy"
+    plugins:
+      - monorepo-diff#v1.10.0:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "bar-service/"
+              config:
+                group: "Deploy Bar"
+                depends_on: "build-bar"
+                allow_dependency_failure: true
+                steps:
+                  - command: "echo deploy-bar"
+                    label: "Deploy Bar"
 ```
 
 ### `secrets` (optional)
