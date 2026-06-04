@@ -37,7 +37,7 @@ func (s Step) MarshalYAML() (interface{}, error) {
 	dependsOn := s.DependsOn
 	condition := s.Condition
 	notify := s.Notify
-	allowDepFail := s.AllowDependencyFailure
+	allowDependencyFailure := s.AllowDependencyFailure
 
 	s.Group = ""
 	s.Key = ""
@@ -57,7 +57,7 @@ func (s Step) MarshalYAML() (interface{}, error) {
 		DependsOn:              dependsOn,
 		Condition:              condition,
 		Notify:                 notify,
-		AllowDependencyFailure: allowDepFail,
+		AllowDependencyFailure: allowDependencyFailure,
 	}, nil
 }
 

@@ -616,6 +616,28 @@ steps:
                     label: "Deploy Bar"
 ```
 
+### `notify` (optional)
+
+Add `notify` to send notifications when a group step completes. Accepts the same notification types as Buildkite step-level notify.
+
+```yaml
+steps:
+  - label: "Deploy"
+    plugins:
+      - monorepo-diff#v1.10.0:
+          diff: "git diff --name-only HEAD~1"
+          watch:
+            - path: "bar-service/"
+              config:
+                group: "Deploy Bar"
+                notify:
+                  - slack: "#deployments"
+                    if: "build.state == 'passed'"
+                steps:
+                  - command: "echo deploy-bar"
+                    label: "Deploy Bar"
+```
+
 ### `secrets` (optional)
 
 Add `secrets` to inject [Buildkite Secrets](https://buildkite.com/docs/pipelines/security/secrets/buildkite-secrets) into your command steps. Secrets can be specified in two formats:
