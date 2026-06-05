@@ -1222,6 +1222,7 @@ func TestGeneratePipelineWithDependsOnInGroup(t *testing.T) {
 
 	assert.Contains(t, output, "group: Deploy Group")
 	assert.Contains(t, output, "depends_on: build", "depends_on should be propagated to group step")
+	validatePipelineWithAgent(t, tmp.Name())
 }
 
 func TestGeneratePipelineWithConditionInGroup(t *testing.T) {
@@ -1245,6 +1246,7 @@ func TestGeneratePipelineWithConditionInGroup(t *testing.T) {
 
 	assert.Contains(t, output, "group: Conditional Group")
 	assert.Contains(t, output, "if: build.branch == 'main'", "if condition value should be propagated to group step")
+	validatePipelineWithAgent(t, tmp.Name())
 }
 
 func TestGeneratePipelineWithNotifyOnGroup(t *testing.T) {
@@ -1271,6 +1273,7 @@ func TestGeneratePipelineWithNotifyOnGroup(t *testing.T) {
 	assert.Contains(t, output, "group: Notify Group")
 	assert.Contains(t, output, "notify:", "notify should be propagated to group step")
 	assert.Contains(t, output, "slack: '#deployments'", "slack notify value should appear in group step")
+	validatePipelineWithAgent(t, tmp.Name())
 }
 
 func TestGeneratePipelineWithAllowDependencyFailureInGroup(t *testing.T) {
@@ -1295,6 +1298,7 @@ func TestGeneratePipelineWithAllowDependencyFailureInGroup(t *testing.T) {
 
 	assert.Contains(t, output, "group: Flaky Group")
 	assert.Contains(t, output, "allow_dependency_failure: true", "allow_dependency_failure should be propagated to group step")
+	validatePipelineWithAgent(t, tmp.Name())
 }
 
 func TestGeneratePipelineWithDependsOnListInGroup(t *testing.T) {
@@ -1319,6 +1323,32 @@ func TestGeneratePipelineWithDependsOnListInGroup(t *testing.T) {
 	assert.Contains(t, output, "group: Multi-dep Group")
 	assert.Contains(t, output, "- build-a", "list-valued depends_on should be propagated to group step")
 	assert.Contains(t, output, "- build-b", "list-valued depends_on should be propagated to group step")
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithDependsOnGroupAndNestedStep(t *testing.T) {
+	steps := []Step{{
+		Group:     "Deploy Group",
+		DependsOn: "setup",
+		Steps: []Step{{
+			Label:     "Deploy",
+			Command:   "echo deploy",
+			DependsOn: "build",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "group: Deploy Group")
+	assert.Equal(t, 2, strings.Count(output, "depends_on:"), "depends_on should appear on both the group and the nested step independently")
+	validatePipelineWithAgent(t, tmp.Name())
 }
 
 func TestGeneratePipelineAllowDependencyFailureFalseOmitted(t *testing.T) {
