@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/buildkite/bintest/v3"
@@ -1198,6 +1199,211 @@ func TestGeneratePipelineWithKeyInGroup(t *testing.T) {
 	assert.Contains(t, output, "label: Run Tests")
 
 	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithDependsOnInGroup(t *testing.T) {
+	steps := []Step{{
+		Group:     "Deploy Group",
+		DependsOn: "build",
+		Steps: []Step{{
+			Label:   "Deploy",
+			Command: "echo deploy",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "group: Deploy Group")
+	assert.Contains(t, output, "depends_on: build", "depends_on should be propagated to group step")
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithConditionInGroup(t *testing.T) {
+	steps := []Step{{
+		Group:     "Conditional Group",
+		Condition: "build.branch == 'main'",
+		Steps: []Step{{
+			Label:   "Run",
+			Command: "echo run",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "group: Conditional Group")
+	assert.Contains(t, output, "if: build.branch == 'main'", "if condition value should be propagated to group step")
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithNotifyOnGroup(t *testing.T) {
+	steps := []Step{{
+		Group: "Notify Group",
+		Notify: []StepNotify{{
+			Slack: "#deployments",
+		}},
+		Steps: []Step{{
+			Label:   "Deploy",
+			Command: "echo deploy",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "group: Notify Group")
+	assert.Contains(t, output, "notify:", "notify should be propagated to group step")
+	assert.Contains(t, output, "slack: '#deployments'", "slack notify value should appear in group step")
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithAllowDependencyFailureInGroup(t *testing.T) {
+	steps := []Step{{
+		Group:                  "Flaky Group",
+		DependsOn:              "setup",
+		AllowDependencyFailure: true,
+		Steps: []Step{{
+			Label:   "Flaky Test",
+			Command: "echo test",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "group: Flaky Group")
+	assert.Contains(t, output, "allow_dependency_failure: true", "allow_dependency_failure should be propagated to group step")
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithDependsOnListInGroup(t *testing.T) {
+	steps := []Step{{
+		Group:     "Multi-dep Group",
+		DependsOn: []string{"build-a", "build-b"},
+		Steps: []Step{{
+			Label:   "Deploy",
+			Command: "echo deploy",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "group: Multi-dep Group")
+	assert.Contains(t, output, "- build-a", "list-valued depends_on should be propagated to group step")
+	assert.Contains(t, output, "- build-b", "list-valued depends_on should be propagated to group step")
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithDependsOnGroupAndNestedStep(t *testing.T) {
+	steps := []Step{{
+		Group:     "Deploy Group",
+		DependsOn: "setup",
+		Steps: []Step{{
+			Label:     "Deploy",
+			Command:   "echo deploy",
+			DependsOn: "build",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "group: Deploy Group")
+	assert.Equal(t, 2, strings.Count(output, "depends_on:"), "depends_on should appear on both the group and the nested step independently")
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineAllowDependencyFailureFalseOmitted(t *testing.T) {
+	// allow_dependency_failure uses omitempty — an explicit false must not appear in output,
+	// matching the same behaviour as other bool fields like async.
+	steps := []Step{{
+		Group:                  "Normal Group",
+		DependsOn:              "build",
+		AllowDependencyFailure: false,
+		Steps: []Step{{
+			Label:   "Deploy",
+			Command: "echo deploy",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.NotContains(t, output, "allow_dependency_failure", "allow_dependency_failure: false should be omitted from output")
+}
+
+func TestGeneratePipelineGroupAttributesNotDuplicatedOnNestedStep(t *testing.T) {
+	// When Steps is nil, the step itself becomes the single nested step.
+	// Group-level attributes must not also appear on that nested step.
+	steps := []Step{{
+		Group:                  "Deploy Group",
+		Command:                "echo deploy",
+		DependsOn:              "build",
+		Condition:              "build.branch == 'main'",
+		AllowDependencyFailure: true,
+		Notify: []StepNotify{{
+			Slack: "#deployments",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	// Group-level attributes must appear exactly once
+	assert.Equal(t, 1, strings.Count(output, "depends_on:"), "depends_on should appear once (on the group, not also on the nested step)")
+	assert.Equal(t, 1, strings.Count(output, "if:"), "if should appear once (on the group, not also on the nested step)")
+	assert.Equal(t, 1, strings.Count(output, "notify:"), "notify should appear once (on the group, not also on the nested step)")
+	assert.Equal(t, 1, strings.Count(output, "allow_dependency_failure:"), "allow_dependency_failure should appear once (on the group, not also on the nested step)")
 }
 
 func TestGeneratePipelineWithPlugins(t *testing.T) {

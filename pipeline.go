@@ -34,13 +34,31 @@ func (s Step) MarshalYAML() (interface{}, error) {
 
 	label := s.Group
 	key := s.Key
+	dependsOn := s.DependsOn
+	condition := s.Condition
+	notify := s.Notify
+	allowDependencyFailure := s.AllowDependencyFailure
+
 	s.Group = ""
 	s.Key = ""
+	s.DependsOn = nil
+	s.Condition = ""
+	s.Notify = nil
+	s.AllowDependencyFailure = false
+
 	stps := []Step{s}
 	if s.Steps != nil {
 		stps = s.Steps
 	}
-	return Group{Label: label, Key: key, Steps: stps}, nil
+	return Group{
+		Label:                  label,
+		Key:                    key,
+		Steps:                  stps,
+		DependsOn:              dependsOn,
+		Condition:              condition,
+		Notify:                 notify,
+		AllowDependencyFailure: allowDependencyFailure,
+	}, nil
 }
 
 func (n PluginNotify) MarshalYAML() (interface{}, error) {
