@@ -180,6 +180,33 @@ func (step *Step) UnmarshalJSON(data []byte) error {
 // Agent is Buildkite agent definition
 type Agent map[string]string
 
+// UnmarshalJSON handles both map format ({"queue":"k8s"}) and array format (["queue=k8s"])
+func (a *Agent) UnmarshalJSON(data []byte) error {
+	// Try map format first
+	var m map[string]string
+	if err := json.Unmarshal(data, &m); err == nil {
+		*a = Agent(m)
+		return nil
+	}
+
+	// Try array format: ["key=value", ...]
+	var arr []string
+	if err := json.Unmarshal(data, &arr); err != nil {
+		return err
+	}
+
+	result := make(Agent, len(arr))
+	for _, entry := range arr {
+		k, v, ok := strings.Cut(entry, "=")
+		if !ok {
+			return fmt.Errorf("agent selector %q is not in key=value format", entry)
+		}
+		result[k] = v
+	}
+	*a = result
+	return nil
+}
+
 // Build is buildkite build definition
 type Build struct {
 	Message  string            `yaml:"message,omitempty"`

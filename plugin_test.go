@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -1842,6 +1843,76 @@ func TestStepIsValid_OnlyMetadata(t *testing.T) {
 		},
 	}
 	assert.False(t, step.isValid())
+}
+
+func TestAgentUnmarshalJSON_MapFormat(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/foo",
+				"config": {
+					"command": "echo hi",
+					"agents": { "queue": "k8s", "os": "linux" }
+				}
+			}]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.Equal(t, Agent{"queue": "k8s", "os": "linux"}, got.Watch[0].Step.Agents)
+}
+
+func TestAgentUnmarshalJSON_ArrayFormat(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/foo",
+				"config": {
+					"command": "echo hi",
+					"agents": ["queue=k8s", "os=linux"]
+				}
+			}]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.Equal(t, Agent{"queue": "k8s", "os": "linux"}, got.Watch[0].Step.Agents)
+}
+
+func TestAgentUnmarshalJSON_ArrayFormat_NestedSteps(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/foo",
+				"config": {
+					"steps": [
+						{
+							"command": "echo first",
+							"agents": ["queue=k8s"]
+						},
+						{
+							"command": "echo second",
+							"agents": ["queue=k8s", "os=linux"]
+						}
+					]
+				}
+			}]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.Equal(t, Agent{"queue": "k8s"}, got.Watch[0].Step.Steps[0].Agents)
+	assert.Equal(t, Agent{"queue": "k8s", "os": "linux"}, got.Watch[0].Step.Steps[1].Agents)
+}
+
+func TestAgentUnmarshalJSON_ArrayInvalidFormat(t *testing.T) {
+	var a Agent
+	err := json.Unmarshal([]byte(`["noequals"]`), &a)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "key=value")
 }
 
 func TestPluginParsesRegexPaths(t *testing.T) {
