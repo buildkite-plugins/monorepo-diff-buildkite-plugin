@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -1913,6 +1914,42 @@ func TestAgentUnmarshalJSON_ArrayInvalidFormat(t *testing.T) {
 	err := json.Unmarshal([]byte(`["noequals"]`), &a)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "key=value")
+}
+
+func TestAgentUnmarshalJSON_ArrayInvalidFormat_ThroughConfig(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/foo",
+				"config": { "command": "echo hi", "agents": ["noequals"] }
+			}]
+		}
+	}]`
+
+	_, err := initializePlugin(param)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "key=value")
+}
+
+func TestGeneratePipelineWithArrayFormatAgents(t *testing.T) {
+	steps := []Step{{
+		Label:   "Run Tests",
+		Command: "echo test",
+		Agents:  Agent{"queue": "k8s", "os": "linux"},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "agents:")
+	assert.Contains(t, output, "queue: k8s")
+	validatePipelineWithAgent(t, tmp.Name())
 }
 
 func TestPluginParsesRegexPaths(t *testing.T) {
