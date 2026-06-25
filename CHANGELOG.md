@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.10.1](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.10.0...v1.10.1) (2026-06-25)
+
+### Added
+* Add regex support to path matching via `regex_paths` flag [#177](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/177) ([Megh03](https://github.com/Megh03))
+* Propagate group step attributes to generated pipeline YAML [#180](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/180) ([Megh03](https://github.com/Megh03))
+
+### Changed
+* Update go toolchain directive to v1.26.4 [#178](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/178) ([renovate[bot]](https://github.com/apps/renovate))
+* Update module github.com/dlclark/regexp2 to v2 [#179](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/179) ([renovate[bot]](https://github.com/apps/renovate))
+* Update buildkite plugin secrets to v2.3.0 [#184](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/184) ([renovate[bot]](https://github.com/apps/renovate))
+* Update buildkite plugin secrets to v2.4.0 [#185](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/185) ([renovate[bot]](https://github.com/apps/renovate))
+
 ## [v1.10.0](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.9.1...v1.10.0) (2026-05-22)
 
 ### Added
