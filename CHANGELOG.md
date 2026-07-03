@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v1.10.1](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.10.0...v1.10.1) (2026-06-25)
+## [v1.11.0](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.10.0...v1.11.0) (2026-07-03)
 
 ### Added
 * Add regex support to path matching via `regex_paths` flag [#177](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/177) ([Megh03](https://github.com/Megh03))
