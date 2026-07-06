@@ -107,7 +107,11 @@ configuration:
                     Environment variables. Array: ["KEY=value", "KEY"] or Map: {KEY: "value", KEY2: ~}
                     Array: KEY-only reads from OS. Map: use "KEY: ~" (null literal) to read from OS, "KEY: ''" for empty string.
             agents:
-              type: object
+              type: [array, object]
+              description: >
+                Agent selectors. Array: ["queue=k8s"] or Map: {queue: k8s}
+              items:
+                type: string
               properties:
                 queue:
                   type: string

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -1842,6 +1844,112 @@ func TestStepIsValid_OnlyMetadata(t *testing.T) {
 		},
 	}
 	assert.False(t, step.isValid())
+}
+
+func TestAgentUnmarshalJSON_MapFormat(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/foo",
+				"config": {
+					"command": "echo hi",
+					"agents": { "queue": "k8s", "os": "linux" }
+				}
+			}]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.Equal(t, Agent{"queue": "k8s", "os": "linux"}, got.Watch[0].Step.Agents)
+}
+
+func TestAgentUnmarshalJSON_ArrayFormat(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/foo",
+				"config": {
+					"command": "echo hi",
+					"agents": ["queue=k8s", "os=linux"]
+				}
+			}]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.Equal(t, Agent{"queue": "k8s", "os": "linux"}, got.Watch[0].Step.Agents)
+}
+
+func TestAgentUnmarshalJSON_ArrayFormat_NestedSteps(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/foo",
+				"config": {
+					"steps": [
+						{
+							"command": "echo first",
+							"agents": ["queue=k8s"]
+						},
+						{
+							"command": "echo second",
+							"agents": ["queue=k8s", "os=linux"]
+						}
+					]
+				}
+			}]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.Equal(t, Agent{"queue": "k8s"}, got.Watch[0].Step.Steps[0].Agents)
+	assert.Equal(t, Agent{"queue": "k8s", "os": "linux"}, got.Watch[0].Step.Steps[1].Agents)
+}
+
+func TestAgentUnmarshalJSON_ArrayInvalidFormat(t *testing.T) {
+	var a Agent
+	err := json.Unmarshal([]byte(`["noequals"]`), &a)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "key=value")
+}
+
+func TestAgentUnmarshalJSON_ArrayInvalidFormat_ThroughConfig(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/foo",
+				"config": { "command": "echo hi", "agents": ["noequals"] }
+			}]
+		}
+	}]`
+
+	_, err := initializePlugin(param)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "key=value")
+}
+
+func TestGeneratePipelineWithArrayFormatAgents(t *testing.T) {
+	steps := []Step{{
+		Label:   "Run Tests",
+		Command: "echo test",
+		Agents:  Agent{"queue": "k8s", "os": "linux"},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "agents:")
+	assert.Contains(t, output, "queue: k8s")
+	validatePipelineWithAgent(t, tmp.Name())
 }
 
 func TestPluginParsesRegexPaths(t *testing.T) {
