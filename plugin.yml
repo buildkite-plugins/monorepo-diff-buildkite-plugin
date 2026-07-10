@@ -22,6 +22,12 @@ configuration:
         Array format: KEY-only reads from OS. Map format: use "KEY: ~" (null literal) to read from OS, "KEY: ''" for empty string.
     binary_folder:
       type: string
+    skip_on_no_changes:
+      type: boolean
+      description: >
+        When true, watch steps whose path didn't match any changed file are still
+        emitted with `skip: "No changes detected"` instead of being omitted, so
+        depends_on references to them still resolve.
     notify:
       type: [array]
       properties:
