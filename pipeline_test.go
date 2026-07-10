@@ -260,7 +260,7 @@ func TestStepsToTriggerWithEmojiPaths(t *testing.T) {
 		"other/file.txt",
 	}
 
-	steps, err := stepsToTrigger(changedFiles, watch)
+	steps, err := stepsToTrigger(changedFiles, watch, false)
 	assert.NoError(t, err)
 	assert.Equal(t, []Step{{Trigger: "test-pipeline"}}, steps)
 }
@@ -294,7 +294,7 @@ func TestPipelinesToTriggerGetsListOfPipelines(t *testing.T) {
 		"watch-path-4/test/index_test.go",
 	}
 
-	pipelines, err := stepsToTrigger(changedFiles, watch)
+	pipelines, err := stepsToTrigger(changedFiles, watch, false)
 	assert.NoError(t, err)
 	var got []string
 
@@ -552,7 +552,230 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			steps, err := stepsToTrigger(tc.ChangedFiles, tc.WatchConfigs)
+			steps, err := stepsToTrigger(tc.ChangedFiles, tc.WatchConfigs, false)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.Expected, steps)
+		})
+	}
+}
+
+func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
+	testCases := map[string]struct {
+		ChangedFiles    []string
+		WatchConfigs    []WatchConfig
+		SkipOnNoChanges bool
+		Expected        []Step
+	}{
+		"unmatched step is emitted with skip when enabled": {
+			ChangedFiles: []string{"app/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"services/"},
+					Step:  Step{Trigger: "deploy-services"},
+				},
+				{
+					Paths: []string{"app/"},
+					Step:  Step{Trigger: "deploy-app"},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Trigger: "deploy-services", Skip: skipNoChangesMessage},
+				{Trigger: "deploy-app"},
+			},
+		},
+		"unmatched step is omitted when disabled (legacy behaviour)": {
+			ChangedFiles: []string{"app/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"services/"},
+					Step:  Step{Trigger: "deploy-services"},
+				},
+				{
+					Paths: []string{"app/"},
+					Step:  Step{Trigger: "deploy-app"},
+				},
+			},
+			SkipOnNoChanges: false,
+			Expected: []Step{
+				{Trigger: "deploy-app"},
+			},
+		},
+		"matched step is never marked skipped": {
+			ChangedFiles: []string{"services/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"services/"},
+					Step:  Step{Trigger: "deploy-services"},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Trigger: "deploy-services"},
+			},
+		},
+		"excepted watch stays fully omitted even when enabled": {
+			ChangedFiles: []string{"main/other/file.txt"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:       []string{"**/*"},
+					ExceptPaths: []string{"main/other/**/*"},
+					Step:        Step{Trigger: "service-1"},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected:        []Step{},
+		},
+		"default watch still fires when nothing matches, skipped placeholders don't count as a match": {
+			ChangedFiles: []string{"unmatched/file.txt"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"app/"},
+					Step:  Step{Trigger: "app-deploy"},
+				},
+				{
+					Default: struct{}{},
+					Step:    Step{Command: "buildkite-agent pipeline upload other_tests.yml"},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Trigger: "app-deploy", Skip: skipNoChangesMessage},
+				{Command: "buildkite-agent pipeline upload other_tests.yml"},
+			},
+		},
+		"group step is emitted with skip when its watch path doesn't match": {
+			ChangedFiles: []string{"app/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"services/"},
+					Step: Step{
+						Group: "CI/CD Infrastructure",
+						Key:   "group:cicd",
+						Steps: []Step{
+							{Command: "echo deploy"},
+						},
+					},
+				},
+				{
+					Paths: []string{"app/"},
+					Step: Step{
+						Command:   "echo build-app",
+						DependsOn: "group:cicd",
+					},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{
+					Group: "CI/CD Infrastructure",
+					Key:   "group:cicd",
+					Skip:  skipNoChangesMessage,
+					Steps: []Step{
+						{Command: "echo deploy"},
+					},
+				},
+				{
+					Command:   "echo build-app",
+					DependsOn: "group:cicd",
+				},
+			},
+		},
+		"changes excluded entirely by skip_path get a distinct skip reason, not 'no changes detected'": {
+			ChangedFiles: []string{"services/api/README.md"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:     []string{"services/api/"},
+					SkipPaths: []string{"services/api/README.md"},
+					Step:      Step{Trigger: "deploy-api"},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Trigger: "deploy-api", Skip: skipPathExcludedMessage},
+			},
+		},
+		"watch entry with no path configured is not injected as a skip placeholder": {
+			ChangedFiles: []string{"vendor/lib.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					SkipPaths: []string{"vendor/"},
+					Step:      Step{Command: "echo deploy-something"},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected:        []Step{},
+		},
+		"two watch entries sharing a key don't produce duplicate steps when only one matches": {
+			ChangedFiles: []string{"path-a/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"path-a/"},
+					Step: Step{
+						Group: "Deploy",
+						Key:   "group:deploy",
+						Steps: []Step{{Command: "echo deploy"}},
+					},
+				},
+				{
+					Paths: []string{"path-b/"},
+					Step: Step{
+						Group: "Deploy",
+						Key:   "group:deploy",
+						Steps: []Step{{Command: "echo deploy"}},
+					},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{
+					Group: "Deploy",
+					Key:   "group:deploy",
+					Steps: []Step{{Command: "echo deploy"}},
+				},
+			},
+		},
+		"two watch entries sharing a key that both genuinely match are not silently collapsed": {
+			ChangedFiles: []string{"path-a/main.go", "path-b/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"path-a/"},
+					Step:  Step{Command: "echo a", Key: "dup"},
+				},
+				{
+					Paths: []string{"path-b/"},
+					Step:  Step{Command: "echo b", Key: "dup"},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Command: "echo a", Key: "dup"},
+				{Command: "echo b", Key: "dup"},
+			},
+		},
+		"two watch entries sharing a key that both go unmatched keep the more specific skip_path reason": {
+			ChangedFiles: []string{"other/file.txt", "path-b/README.md"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"path-a/"},
+					Step:  Step{Command: "echo a", Key: "dup"},
+				},
+				{
+					Paths:     []string{"path-b/"},
+					SkipPaths: []string{"path-b/README.md"},
+					Step:      Step{Command: "echo b", Key: "dup"},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Command: "echo b", Key: "dup", Skip: skipPathExcludedMessage},
+			},
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			steps, err := stepsToTrigger(tc.ChangedFiles, tc.WatchConfigs, tc.SkipOnNoChanges)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.Expected, steps)
 		})
@@ -722,7 +945,7 @@ func TestRegexPaths(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			steps, err := stepsToTrigger(tc.ChangedFiles, tc.WatchConfigs)
+			steps, err := stepsToTrigger(tc.ChangedFiles, tc.WatchConfigs, false)
 			if tc.ExpectError {
 				assert.Error(t, err)
 			} else {
@@ -1225,6 +1448,50 @@ func TestGeneratePipelineWithDependsOnInGroup(t *testing.T) {
 	validatePipelineWithAgent(t, tmp.Name())
 }
 
+func TestGeneratePipelineWithSkipInGroup(t *testing.T) {
+	steps := []Step{{
+		Group: "CI/CD Infrastructure",
+		Key:   "group:cicd",
+		Skip:  "No changes detected",
+		Steps: []Step{{
+			Command: "echo deploy",
+		}},
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "group: CI/CD Infrastructure")
+	assert.Contains(t, output, `skip: No changes detected`, "skip should be propagated to group step")
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
+func TestGeneratePipelineWithSkipOnPlainStep(t *testing.T) {
+	steps := []Step{{
+		Command: "echo deploy",
+		Skip:    "No changes detected",
+	}}
+
+	tmp, hasPipeline, err := generatePipeline(steps, Plugin{})
+	assert.NoError(t, err)
+	assert.True(t, hasPipeline)
+	defer os.Remove(tmp.Name())
+
+	content, err := os.ReadFile(tmp.Name())
+	assert.NoError(t, err)
+	output := string(content)
+
+	assert.Contains(t, output, "command: echo deploy")
+	assert.Contains(t, output, `skip: No changes detected`, "skip should be propagated to a plain (non-group) step")
+	validatePipelineWithAgent(t, tmp.Name())
+}
+
 func TestGeneratePipelineWithConditionInGroup(t *testing.T) {
 	steps := []Step{{
 		Group:     "Conditional Group",
@@ -1550,7 +1817,7 @@ func TestStepsToTrigger_Issue83(t *testing.T) {
 		"other-path/file.txt",
 	}
 
-	steps, err := stepsToTrigger(changedFiles, watch)
+	steps, err := stepsToTrigger(changedFiles, watch, false)
 
 	assert.NoError(t, err)
 	assert.Len(t, steps, 1)
@@ -1572,7 +1839,7 @@ func TestStepsToTrigger_DefaultWithEmptyStep(t *testing.T) {
 
 	changedFiles := []string{"unmatched/file.txt"}
 
-	steps, err := stepsToTrigger(changedFiles, watch)
+	steps, err := stepsToTrigger(changedFiles, watch, false)
 
 	assert.NoError(t, err)
 	assert.Len(t, steps, 0)
@@ -1593,7 +1860,7 @@ func TestStepsToTrigger_AllStepsInvalid(t *testing.T) {
 
 	changedFiles := []string{"path1/file.txt", "path2/file.txt"}
 
-	steps, err := stepsToTrigger(changedFiles, watch)
+	steps, err := stepsToTrigger(changedFiles, watch, false)
 
 	assert.NoError(t, err)
 	assert.Len(t, steps, 0)
@@ -1613,7 +1880,7 @@ func TestStepsToTrigger_EmptyGroupInConfig(t *testing.T) {
 
 	changedFiles := []string{"services/main.go"}
 
-	steps, err := stepsToTrigger(changedFiles, watch)
+	steps, err := stepsToTrigger(changedFiles, watch, false)
 
 	assert.NoError(t, err)
 	assert.Len(t, steps, 0)
@@ -1642,7 +1909,7 @@ func TestStepsToTrigger_ValidAndInvalidStepsMixed(t *testing.T) {
 		"deploy/script.sh",
 	}
 
-	steps, err := stepsToTrigger(changedFiles, watch)
+	steps, err := stepsToTrigger(changedFiles, watch, false)
 
 	assert.NoError(t, err)
 	assert.Len(t, steps, 2)

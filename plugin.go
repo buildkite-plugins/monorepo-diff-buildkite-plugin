@@ -15,17 +15,18 @@ const pluginName = "monorepo-diff"
 
 // Plugin buildkite monorepo diff plugin structure
 type Plugin struct {
-	Diff          string
-	Wait          bool
-	LogLevel      string `json:"log_level"`
-	Interpolation bool
-	Hooks         []HookConfig
-	Watch         []WatchConfig
-	RawEnv        interface{} `json:"env"`
-	Env           map[string]string
-	Metadata      map[string]string        `json:"meta_data"`
-	RawNotify     []map[string]interface{} `json:"notify" yaml:",omitempty"`
-	Notify        []PluginNotify           `yaml:"notify,omitempty"`
+	Diff            string
+	Wait            bool
+	LogLevel        string `json:"log_level"`
+	Interpolation   bool
+	Hooks           []HookConfig
+	Watch           []WatchConfig
+	RawEnv          interface{} `json:"env"`
+	Env             map[string]string
+	Metadata        map[string]string        `json:"meta_data"`
+	RawNotify       []map[string]interface{} `json:"notify" yaml:",omitempty"`
+	Notify          []PluginNotify           `yaml:"notify,omitempty"`
+	SkipOnNoChanges bool                     `json:"skip_on_no_changes"`
 }
 
 // HookConfig Plugin hook configuration
@@ -54,6 +55,7 @@ type Group struct {
 	Condition              string       `yaml:"if,omitempty"`
 	Notify                 []StepNotify `yaml:"notify,omitempty"`
 	AllowDependencyFailure bool         `yaml:"allow_dependency_failure,omitempty"`
+	Skip                   interface{}  `yaml:"skip,omitempty"`
 }
 
 // GithubStatusNotification is notification config for github_commit_status
@@ -82,21 +84,24 @@ type StepNotify struct {
 
 // Step is buildkite pipeline definition
 type Step struct {
-	Group                  string                   `yaml:"group,omitempty"`
-	Trigger                string                   `yaml:"trigger,omitempty"`
-	Label                  string                   `yaml:"label,omitempty"`
-	Branches               string                   `yaml:"branches,omitempty"`
-	Condition              string                   `json:"if,omitempty" yaml:"if,omitempty"`
-	Build                  Build                    `yaml:"build,omitempty"`
-	Command                interface{}              `yaml:"command,omitempty"`
-	Commands               interface{}              `yaml:"commands,omitempty"`
-	Agents                 Agent                    `yaml:"agents,omitempty"`
-	ArtifactPaths          []string                 `json:"artifact_paths" yaml:"artifact_paths,omitempty"`
-	RawEnv                 interface{}              `json:"env" yaml:",omitempty"`
-	Plugins                []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
-	Env                    map[string]string        `yaml:"env,omitempty"`
-	Async                  bool                     `yaml:"async,omitempty"`
-	SoftFail               interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
+	Group         string                   `yaml:"group,omitempty"`
+	Trigger       string                   `yaml:"trigger,omitempty"`
+	Label         string                   `yaml:"label,omitempty"`
+	Branches      string                   `yaml:"branches,omitempty"`
+	Condition     string                   `json:"if,omitempty" yaml:"if,omitempty"`
+	Build         Build                    `yaml:"build,omitempty"`
+	Command       interface{}              `yaml:"command,omitempty"`
+	Commands      interface{}              `yaml:"commands,omitempty"`
+	Agents        Agent                    `yaml:"agents,omitempty"`
+	ArtifactPaths []string                 `json:"artifact_paths" yaml:"artifact_paths,omitempty"`
+	RawEnv        interface{}              `json:"env" yaml:",omitempty"`
+	Plugins       []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
+	Env           map[string]string        `yaml:"env,omitempty"`
+	Async         bool                     `yaml:"async,omitempty"`
+	SoftFail      interface{}              `json:"soft_fail" yaml:"soft_fail,omitempty"`
+	// Skip is set internally by skip_on_no_changes, not by customer config —
+	// json:"-" keeps it out of plugin config parsing while yaml still emits it.
+	Skip                   interface{}              `json:"-" yaml:"skip,omitempty"`
 	Retry                  interface{}              `json:"retry,omitempty" yaml:"retry,omitempty"`
 	RawNotify              []map[string]interface{} `json:"notify" yaml:",omitempty"`
 	Notify                 []StepNotify             `yaml:"notify,omitempty"`

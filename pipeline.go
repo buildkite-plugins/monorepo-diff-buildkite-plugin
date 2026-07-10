@@ -14,6 +14,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// skipNoChangesMessage is the skip reason applied to watch steps whose path
+// didn't match any changed file when skip_on_no_changes is enabled.
+const skipNoChangesMessage = "No changes detected"
+
+// skipPathExcludedMessage is used instead of skipNoChangesMessage when the
+// watch path did match a changed file, but every match was excluded via skip_path.
+const skipPathExcludedMessage = "Matched changes were excluded by skip_path"
+
 // WaitStep represents a Buildkite Wait Step
 // https://buildkite.com/docs/pipelines/wait-step
 // We can't use Step here since the value for Wait is always nil
@@ -38,6 +46,7 @@ func (s Step) MarshalYAML() (interface{}, error) {
 	condition := s.Condition
 	notify := s.Notify
 	allowDependencyFailure := s.AllowDependencyFailure
+	skip := s.Skip
 
 	s.Group = ""
 	s.Key = ""
@@ -45,6 +54,7 @@ func (s Step) MarshalYAML() (interface{}, error) {
 	s.Condition = ""
 	s.Notify = nil
 	s.AllowDependencyFailure = false
+	s.Skip = nil
 
 	stps := []Step{s}
 	if s.Steps != nil {
@@ -58,6 +68,7 @@ func (s Step) MarshalYAML() (interface{}, error) {
 		Condition:              condition,
 		Notify:                 notify,
 		AllowDependencyFailure: allowDependencyFailure,
+		Skip:                   skip,
 	}, nil
 }
 
@@ -83,7 +94,7 @@ func uploadPipeline(plugin Plugin, generatePipeline PipelineGenerator) (string, 
 
 	log.Debug("Output from diff: \n" + strings.Join(diffOutput, "\n"))
 
-	steps, err := stepsToTrigger(diffOutput, plugin.Watch)
+	steps, err := stepsToTrigger(diffOutput, plugin.Watch, plugin.SkipOnNoChanges)
 	if err != nil {
 		return "", []string{}, err
 	}
@@ -197,9 +208,46 @@ func logInvalidStep(step Step) {
 	log.Warnf("Skipping invalid step: %s. Steps must have at least one of: command, commands, trigger, or group with nested steps.", context)
 }
 
-func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
+func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) ([]Step, error) {
 	steps := []Step{}
 	var defaultStep *Step
+	anyMatched := false
+	// Tracks the index of the most recently appended step for each non-empty
+	// Key, so that a watch's real match and its own skip placeholder (or two
+	// watches sharing a key that both go unmatched) never both land in the
+	// output as conflicting duplicate keys.
+	keyIndex := map[string]int{}
+
+	appendStep := func(s Step) {
+		if s.Key != "" {
+			if i, ok := keyIndex[s.Key]; ok {
+				existing := steps[i]
+				switch {
+				case existing.Skip != nil && s.Skip == nil:
+					// A real match supersedes an earlier skip placeholder for the same key.
+					steps[i] = s
+					return
+				case existing.Skip == nil && s.Skip != nil:
+					// This key already has a real match; drop the redundant placeholder.
+					return
+				case existing.Skip != nil && s.Skip != nil:
+					// Both are placeholders; prefer the more specific reason.
+					if existing.Skip == skipNoChangesMessage && s.Skip == skipPathExcludedMessage {
+						steps[i] = s
+					}
+					return
+				}
+				// Both are real matches with different content sharing a key — a
+				// genuine misconfiguration; keep both and let Buildkite's own
+				// pipeline-upload validation surface the duplicate key, same as
+				// it always has for any other duplicate-key mistake.
+			}
+		}
+		steps = append(steps, s)
+		if s.Key != "" {
+			keyIndex[s.Key] = len(steps) - 1
+		}
+	}
 
 	for _, w := range watch {
 		if w.Default != nil {
@@ -230,6 +278,10 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 			continue
 		}
 
+		matched := false
+		excludedBySkipPath := false
+
+	pathsLoop:
 		for _, p := range w.Paths {
 			for _, f := range files {
 				match, err := matchPath(p, f, w.RegexPaths)
@@ -252,14 +304,31 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 				}
 
 				if match && !skip {
-					steps = append(steps, w.Step)
-					break
+					appendStep(w.Step)
+					matched = true
+					break pathsLoop
+				}
+
+				if match && skip {
+					excludedBySkipPath = true
 				}
 			}
 		}
+
+		if matched {
+			anyMatched = true
+		} else if skipOnNoChanges && len(w.Paths) > 0 {
+			skippedStep := w.Step
+			if excludedBySkipPath {
+				skippedStep.Skip = skipPathExcludedMessage
+			} else {
+				skippedStep.Skip = skipNoChangesMessage
+			}
+			appendStep(skippedStep)
+		}
 	}
 
-	if len(steps) == 0 && defaultStep != nil {
+	if !anyMatched && defaultStep != nil {
 		steps = append(steps, *defaultStep)
 	}
 

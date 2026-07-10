@@ -899,6 +899,85 @@ func TestPluginShouldPreserveStepCondition(t *testing.T) {
 	}
 }
 
+func TestPluginShouldParseSkipOnNoChanges(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"skip_on_no_changes": true,
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo deploy"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:            "git diff --name-only HEAD~1",
+		Wait:            false,
+		LogLevel:        "info",
+		Interpolation:   true,
+		SkipOnNoChanges: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Step: Step{
+					Command: "echo deploy",
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestPluginShouldIgnoreCustomerProvidedSkip(t *testing.T) {
+	// Skip is set internally by skip_on_no_changes, not by customer config —
+	// a "skip" key in a step's own config must be silently ignored, not parsed.
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo deploy",
+						"skip": "customer set this manually"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Step: Step{
+					Command: "echo deploy",
+				},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
+
 func TestPluginShouldClearRawEnvFromNestedSteps(t *testing.T) {
 	param := `[{
 		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
