@@ -1,0 +1,71 @@
+agents:
+  queue: hosted
+
+steps:
+  - label: ":shell: Shellcheck"
+    key: shellcheck
+    plugins:
+      shellcheck#v1.4.0:
+        files:
+          - hooks/**
+          - lib/**
+          - commands/**
+
+  - label: ":sparkles: Lint"
+    key: lint
+    plugins:
+      plugin-linter#v3.3.0:
+        id: monorepo-diff
+
+  - label: ":golang: Test"
+    key: test
+    command: go test ./...
+    plugins:
+      - docker#v5.13.0:
+          image: "golang"
+          always-pull: true
+          workdir: /plugin
+          mount-buildkite-agent: true
+
+  - label: ":linux: Build"
+    key: build
+    command: make local
+    artifact_paths: monorepo-diff-buildkite-plugin
+    plugins:
+      - docker#v5.13.0:
+          image: "golang"
+          always-pull: true
+          workdir: /plugin
+
+  - wait: ~
+    depends_on:
+      - shellcheck
+      - lint
+      - test
+      - build
+
+  - label: ":rocket: :github: Release"
+    key: release
+    artifact_paths:
+      - dist/**/*
+    env:
+      AWS_REGION: us-east-1
+    plugins:
+      - aws-assume-role-with-web-identity#v1.6.0:
+          role-arn: arn:aws:iam::445615400570:role/pipeline-buildkite-monorail-plugin-monorepo-diff-release
+          session-tags:
+            - organization_slug
+            - organization_id
+            - pipeline_slug
+      - aws-ssm#v1.1.0:
+          parameters:
+            GITHUB_TOKEN: /pipelines/buildkite/monorail-plugin-monorepo-diff-release/github-token
+      - docker#v5.13.0:
+          image: "goreleaser/goreleaser:v2"
+          always-pull: true
+          workdir: /plugin
+          environment:
+            - GITHUB_TOKEN
+          command:
+            - release
+            - --clean

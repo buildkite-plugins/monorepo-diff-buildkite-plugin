@@ -2,7 +2,14 @@ env:
   BUILDKITE_PLUGIN_MONOREPO_DIFF_BUILDKITE_PLUGIN_TEST_MODE: true
 
 steps:
+  - block: "Allow this build to run?"
+    key: allow_build
+
+  - wait: ~
+
   - label: ":shell: Shellcheck"
+    key: shellcheck
+    depends_on: allow_build
     plugins:
       shellcheck#v1.4.0:
         files:
@@ -11,11 +18,15 @@ steps:
           - commands/**
 
   - label: ":sparkles: Lint"
+    key: lint
+    depends_on: allow_build
     plugins:
       plugin-linter#v3.3.0:
         id: monorepo-diff
 
   - label: ":golang: Test"
+    key: test
+    depends_on: allow_build
     command: go test ./...
     plugins:
       - docker#v5.13.0:
@@ -25,6 +36,8 @@ steps:
           mount-buildkite-agent: true
 
   - label: ":linux: Build"
+    key: build
+    depends_on: allow_build
     command: make local
     artifact_paths: monorepo-diff-buildkite-plugin
     plugins:
@@ -35,6 +48,7 @@ steps:
 
   - label: "Security Scan"
     key: security_scan
+    depends_on: allow_build
     plugins:
       - secrets#v2.4.0:
           variables:
@@ -196,3 +210,49 @@ steps:
             - default:
                 config:
                   command: "echo hello-world"
+
+  - input: ":package: Create a release?"
+    key: release_unblock
+    prompt: "Select the release type"
+    branches:
+      - main
+    depends_on:
+      - shellcheck
+      - lint
+      - test
+      - build
+      - security_scan
+    allowed_teams:
+      - support
+      - deploy
+    blocked_state: passed
+    fields:
+      - key: release-type
+        select: "Release Type"
+        required: true
+        options:
+          - label: "Patch (v1.x.X)"
+            value: "patch"
+          - label: "Minor (v1.X.0)"
+            value: "minor"
+          - label: "Major (vX.0.0) - Manual only"
+            value: "major"
+
+  - label: ":rocket: Pushing a tag to release"
+    key: push_tag
+    command: ".buildkite/tag.sh"
+    branches:
+      - main
+    depends_on: release_unblock
+    env:
+      AWS_REGION: us-east-1
+    plugins:
+      - aws-assume-role-with-web-identity#v1.6.0:
+          role-arn: arn:aws:iam::445615400570:role/pipeline-buildkite-monorail-plugin-monorepo
+          session-tags:
+            - organization_slug
+            - organization_id
+            - pipeline_slug
+      - aws-ssm#v1.1.0:
+          parameters:
+            GITHUB_TOKEN: /pipelines/buildkite/monorail-plugin-monorepo/github-token
