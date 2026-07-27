@@ -29,7 +29,7 @@ steps:
     depends_on: allow_build
     command: go test ./...
     plugins:
-      - docker#v5.13.0:
+      - docker#v5.14.0:
           image: "golang"
           always-pull: true
           workdir: /plugin
@@ -41,7 +41,7 @@ steps:
     command: make local
     artifact_paths: monorepo-diff-buildkite-plugin
     plugins:
-      - docker#v5.13.0:
+      - docker#v5.14.0:
           image: "golang"
           always-pull: true
           workdir: /plugin
