@@ -199,11 +199,11 @@ func logInvalidStep(step Step) {
 
 func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 	steps := []Step{}
-	var defaultStep *Step
+	var defaultSteps []Step
 
 	for _, w := range watch {
 		if w.Default != nil {
-			defaultStep = &w.Step
+			defaultSteps = w.Steps
 			continue
 		}
 		except := false
@@ -252,15 +252,15 @@ func stepsToTrigger(files []string, watch []WatchConfig) ([]Step, error) {
 				}
 
 				if match && !skip {
-					steps = append(steps, w.Step)
+					steps = append(steps, w.Steps...)
 					break
 				}
 			}
 		}
 	}
 
-	if len(steps) == 0 && defaultStep != nil {
-		steps = append(steps, *defaultStep)
+	if len(steps) == 0 && defaultSteps != nil {
+		steps = append(steps, defaultSteps...)
 	}
 
 	deduped := dedupSteps(steps)

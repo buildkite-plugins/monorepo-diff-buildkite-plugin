@@ -37,7 +37,8 @@ type HookConfig struct {
 type WatchConfig struct {
 	RawPath       interface{} `json:"path"`
 	Paths         []string
-	Step          Step        `json:"config"`
+	RawConfig     interface{} `json:"config"`
+	Steps         []Step
 	Default       interface{} `json:"default"`
 	RawSkipPath   interface{} `json:"skip_path"`
 	RawExceptPath interface{} `json:"except_path"`
@@ -105,6 +106,7 @@ type Step struct {
 	Secrets                interface{}              `json:"secrets,omitempty" yaml:"secrets,omitempty"`
 	Steps                  []Step                   `yaml:"steps,omitempty"`
 	AllowDependencyFailure bool                     `json:"allow_dependency_failure,omitempty" yaml:"allow_dependency_failure,omitempty"`
+	Matrix                 interface{}              `yaml:"matrix,omitempty"`
 }
 
 // isValid checks if a step has required fields (command, trigger, or group with steps)
@@ -229,16 +231,28 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 		if p.Default != nil {
 			plugin.Watch[i].Paths = []string{}
 			if config, ok := p.Default.(map[string]interface{}); ok && len(config) > 0 {
-				// Use the default config directly
-				conf := config
-				if _, ok := config["config"]; ok {
-					// or allow for it to be in a config configuration
-					conf = config["config"].(map[string]interface{})
+				var conf interface{} = config
+				if nested, ok := config["config"]; ok {
+					conf = nested
 				}
-				b, _ := json.Marshal(conf)
-				err := json.Unmarshal(b, &plugin.Watch[i].Step)
+				b, err := json.Marshal(conf)
 				if err != nil {
 					return err
+				}
+
+				switch conf.(type) {
+				case []interface{}:
+					var steps []Step
+					if err := json.Unmarshal(b, &steps); err != nil {
+						return err
+					}
+					plugin.Watch[i].Steps = steps
+				default:
+					var step Step
+					if err := json.Unmarshal(b, &step); err != nil {
+						return err
+					}
+					plugin.Watch[i].Steps = []Step{step}
 				}
 			}
 			plugin.Watch[i].Default = true
@@ -273,12 +287,37 @@ func (plugin *Plugin) UnmarshalJSON(data []byte) error {
 			}
 		}
 
-		if plugin.Watch[i].Step.Trigger != "" {
-			setBuild(&plugin.Watch[i].Step.Build)
-		}
+		if p.RawConfig != nil {
+			b, err := json.Marshal(p.RawConfig)
+			if err != nil {
+				return fmt.Errorf("failed to parse config: %v", err)
+			}
 
-		if plugin.Watch[i].Step.RawNotify != nil {
-			setNotify(&plugin.Watch[i].Step.Notify, &plugin.Watch[i].Step.RawNotify)
+			switch p.RawConfig.(type) {
+			case []interface{}:
+				var steps []Step
+				if err := json.Unmarshal(b, &steps); err != nil {
+					return fmt.Errorf("failed to parse config: %v", err)
+				}
+				plugin.Watch[i].Steps = steps
+			default:
+				var step Step
+				if err := json.Unmarshal(b, &step); err != nil {
+					return fmt.Errorf("failed to parse config: %v", err)
+				}
+				plugin.Watch[i].Steps = []Step{step}
+			}
+		}
+		plugin.Watch[i].RawConfig = nil
+
+		for j := range plugin.Watch[i].Steps {
+			step := &plugin.Watch[i].Steps[j]
+			if step.Trigger != "" {
+				setBuild(&step.Build)
+			}
+			if step.RawNotify != nil {
+				setNotify(&step.Notify, &step.RawNotify)
+			}
 		}
 
 		appendEnv(&plugin.Watch[i], plugin.Env)
@@ -469,34 +508,39 @@ func processNestedSteps(steps []Step, env map[string]string) {
 
 // appends top level env to Step.Env and Step.Build.Env
 func appendEnv(watch *WatchConfig, env map[string]string) {
-	watch.Step.Env, _ = parseEnv(watch.Step.RawEnv)
-	watch.Step.Build.Env, _ = parseEnv(watch.Step.Build.RawEnv)
+	for i := range watch.Steps {
+		step := &watch.Steps[i]
 
-	for key, value := range env {
-		if watch.Step.Command != nil || watch.Step.Commands != nil {
-			if watch.Step.Env == nil {
-				watch.Step.Env = make(map[string]string)
+		step.Env, _ = parseEnv(step.RawEnv)
+		step.Build.Env, _ = parseEnv(step.Build.RawEnv)
+
+		for key, value := range env {
+			if step.Command != nil || step.Commands != nil {
+				if step.Env == nil {
+					step.Env = make(map[string]string)
+				}
+
+				step.Env[key] = value
+				continue
 			}
+			if step.Trigger != "" {
+				if step.Build.Env == nil {
+					step.Build.Env = make(map[string]string)
+				}
 
-			watch.Step.Env[key] = value
-			continue
+				step.Build.Env[key] = value
+				continue
+			}
 		}
-		if watch.Step.Trigger != "" {
-			if watch.Step.Build.Env == nil {
-				watch.Step.Build.Env = make(map[string]string)
-			}
 
-			watch.Step.Build.Env[key] = value
-			continue
+		step.RawEnv = nil
+		step.Build.RawEnv = nil
+		// Process nested steps
+		if len(step.Steps) > 0 {
+			processNestedSteps(step.Steps, env)
 		}
 	}
 
-	watch.Step.RawEnv = nil
-	watch.Step.Build.RawEnv = nil
-	// Process nested steps
-	if len(watch.Step.Steps) > 0 {
-		processNestedSteps(watch.Step.Steps, env)
-	}
 	watch.RawPath = nil
 	watch.RawSkipPath = nil
 }
@@ -506,13 +550,16 @@ func appendMetadata(watch *WatchConfig, metadata map[string]string) {
 	if len(metadata) == 0 {
 		return
 	}
-	// Only apply metadata to trigger steps, not command steps
-	if watch.Step.Trigger != "" {
-		if watch.Step.Build.Metadata == nil {
-			watch.Step.Build.Metadata = make(map[string]string)
-		}
-		for k, v := range metadata {
-			watch.Step.Build.Metadata[k] = v
+	for i := range watch.Steps {
+		step := &watch.Steps[i]
+		// Only apply metadata to trigger steps, not command steps
+		if step.Trigger != "" {
+			if step.Build.Metadata == nil {
+				step.Build.Metadata = make(map[string]string)
+			}
+			for k, v := range metadata {
+				step.Build.Metadata[k] = v
+			}
 		}
 	}
 }

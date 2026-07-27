@@ -54,7 +54,7 @@ configuration:
             When true, path, skip_path, and except_path are treated as regexp2 regular expressions
             instead of globs. Supports full PCRE syntax including lookaheads.
         config:
-          type: object
+          type: [object, array]
           properties:
             group:
               type: string
@@ -72,6 +72,12 @@ configuration:
               type: string
             soft_fail:
               type: [object, boolean]
+            matrix:
+              type: [array, object]
+              description: >
+                Build matrix configuration; either a list of values or an object with
+                "setup" and "adjustments". Passed through untouched to the generated step.
+                See https://buildkite.com/docs/pipelines/configure/workflows/build-matrix
             notify:
               type: [array]
               properties:
