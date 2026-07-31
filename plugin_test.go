@@ -928,9 +928,9 @@ func TestPluginShouldParseSkipOnNoChanges(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"service/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Command: "echo deploy",
-				},
+				}},
 			},
 		},
 	}
@@ -968,9 +968,9 @@ func TestPluginShouldIgnoreCustomerProvidedSkip(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"service/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Command: "echo deploy",
-				},
+				}},
 			},
 		},
 	}
@@ -1990,7 +1990,7 @@ func TestPluginConfigArrayProducesMultipleSteps(t *testing.T) {
 
 	// stepsToTrigger / pipeline generation should produce both as separate
 	// top-level steps, not nested under a group, when the path matches.
-	steps, err := stepsToTrigger([]string{"services/main.go"}, got.Watch)
+	steps, err := stepsToTrigger([]string{"services/main.go"}, got.Watch, false)
 	assert.NoError(t, err)
 	assert.Len(t, steps, 2)
 	assert.Equal(t, "", steps[0].Group)

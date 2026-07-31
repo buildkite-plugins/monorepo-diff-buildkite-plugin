@@ -113,6 +113,45 @@ func TestUploadPipelineWithEmptyGeneratedPipeline(t *testing.T) {
 	assert.Equal(t, nil, err)
 }
 
+// TestUploadPipelineUploadsSkipOnlyPipeline locks in an intentional behaviour
+// change: previously, if no watch matched and there was no default step,
+// nothing was uploaded. With skip_on_no_changes enabled, an unmatched watch
+// now produces a skip-placeholder step, so the pipeline has content and gets
+// uploaded even though nothing "really" matched.
+func TestUploadPipelineUploadsSkipOnlyPipeline(t *testing.T) {
+	plugin := Plugin{
+		Diff:            "echo ./bar-service",
+		Interpolation:   true,
+		SkipOnNoChanges: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"unrelated/"},
+				Steps:  []Step{{Command: "echo should-not-run"}},
+			},
+		},
+	}
+
+	agent, err := bintest.NewMock("buildkite-agent")
+	require.NoError(t, err)
+
+	oldPath := os.Getenv("PATH")
+	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
+	_ = os.Setenv("PATH", filepath.Dir(agent.Path)+":"+oldPath)
+
+	agent.
+		Expect("pipeline", "upload", bintest.MatchAny()).
+		AndExitWith(0)
+
+	cmd, args, err := uploadPipeline(plugin, generatePipeline)
+
+	assert.Equal(t, "buildkite-agent", cmd)
+	require.Len(t, args, 3)
+	assert.Equal(t, []string{"pipeline", "upload"}, args[:2])
+	assert.NoError(t, err)
+
+	require.NoError(t, agent.CheckAndClose(t))
+}
+
 func TestDiff(t *testing.T) {
 	want := []string{
 		"services/foo/serverless.yml",
@@ -571,11 +610,11 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"services/"},
-					Step:  Step{Trigger: "deploy-services"},
+					Steps:  []Step{{Trigger: "deploy-services"}},
 				},
 				{
 					Paths: []string{"app/"},
-					Step:  Step{Trigger: "deploy-app"},
+					Steps:  []Step{{Trigger: "deploy-app"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -589,11 +628,11 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"services/"},
-					Step:  Step{Trigger: "deploy-services"},
+					Steps:  []Step{{Trigger: "deploy-services"}},
 				},
 				{
 					Paths: []string{"app/"},
-					Step:  Step{Trigger: "deploy-app"},
+					Steps:  []Step{{Trigger: "deploy-app"}},
 				},
 			},
 			SkipOnNoChanges: false,
@@ -606,7 +645,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"services/"},
-					Step:  Step{Trigger: "deploy-services"},
+					Steps:  []Step{{Trigger: "deploy-services"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -614,28 +653,42 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				{Trigger: "deploy-services"},
 			},
 		},
-		"excepted watch stays fully omitted even when enabled": {
+		"excepted watch stays fully omitted when disabled (legacy behaviour)": {
 			ChangedFiles: []string{"main/other/file.txt"},
 			WatchConfigs: []WatchConfig{
 				{
 					Paths:       []string{"**/*"},
 					ExceptPaths: []string{"main/other/**/*"},
-					Step:        Step{Trigger: "service-1"},
+					Steps:        []Step{{Trigger: "service-1"}},
+				},
+			},
+			SkipOnNoChanges: false,
+			Expected:        []Step{},
+		},
+		"excepted watch is emitted with a distinct skip reason when enabled": {
+			ChangedFiles: []string{"main/other/file.txt"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:       []string{"**/*"},
+					ExceptPaths: []string{"main/other/**/*"},
+					Steps:        []Step{{Trigger: "service-1"}},
 				},
 			},
 			SkipOnNoChanges: true,
-			Expected:        []Step{},
+			Expected: []Step{
+				{Trigger: "service-1", Skip: skipExceptPathMessage},
+			},
 		},
 		"default watch still fires when nothing matches, skipped placeholders don't count as a match": {
 			ChangedFiles: []string{"unmatched/file.txt"},
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"app/"},
-					Step:  Step{Trigger: "app-deploy"},
+					Steps:  []Step{{Trigger: "app-deploy"}},
 				},
 				{
 					Default: struct{}{},
-					Step:    Step{Command: "buildkite-agent pipeline upload other_tests.yml"},
+					Steps:    []Step{{Command: "buildkite-agent pipeline upload other_tests.yml"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -649,20 +702,20 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"services/"},
-					Step: Step{
+					Steps: []Step{{
 						Group: "CI/CD Infrastructure",
 						Key:   "group:cicd",
 						Steps: []Step{
 							{Command: "echo deploy"},
 						},
-					},
+					}},
 				},
 				{
 					Paths: []string{"app/"},
-					Step: Step{
+					Steps: []Step{{
 						Command:   "echo build-app",
 						DependsOn: "group:cicd",
-					},
+					}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -687,7 +740,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				{
 					Paths:     []string{"services/api/"},
 					SkipPaths: []string{"services/api/README.md"},
-					Step:      Step{Trigger: "deploy-api"},
+					Steps:      []Step{{Trigger: "deploy-api"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -700,7 +753,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					SkipPaths: []string{"vendor/"},
-					Step:      Step{Command: "echo deploy-something"},
+					Steps:      []Step{{Command: "echo deploy-something"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -711,19 +764,19 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"path-a/"},
-					Step: Step{
+					Steps: []Step{{
 						Group: "Deploy",
 						Key:   "group:deploy",
 						Steps: []Step{{Command: "echo deploy"}},
-					},
+					}},
 				},
 				{
 					Paths: []string{"path-b/"},
-					Step: Step{
+					Steps: []Step{{
 						Group: "Deploy",
 						Key:   "group:deploy",
 						Steps: []Step{{Command: "echo deploy"}},
-					},
+					}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -740,11 +793,11 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"path-a/"},
-					Step:  Step{Command: "echo a", Key: "dup"},
+					Steps:  []Step{{Command: "echo a", Key: "dup"}},
 				},
 				{
 					Paths: []string{"path-b/"},
-					Step:  Step{Command: "echo b", Key: "dup"},
+					Steps:  []Step{{Command: "echo b", Key: "dup"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -758,17 +811,138 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"path-a/"},
-					Step:  Step{Command: "echo a", Key: "dup"},
+					Steps:  []Step{{Command: "echo a", Key: "dup"}},
 				},
 				{
 					Paths:     []string{"path-b/"},
 					SkipPaths: []string{"path-b/README.md"},
-					Step:      Step{Command: "echo b", Key: "dup"},
+					Steps:      []Step{{Command: "echo b", Key: "dup"}},
 				},
 			},
 			SkipOnNoChanges: true,
 			Expected: []Step{
 				{Command: "echo b", Key: "dup", Skip: skipPathExcludedMessage},
+			},
+		},
+		"a skip placeholder appended first is replaced in place by a later real match sharing the same key": {
+			ChangedFiles: []string{"services/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"app/"},
+					Steps:  []Step{{Key: "shared-key", Trigger: "placeholder-first"}},
+				},
+				{
+					Paths: []string{"services/"},
+					Steps:  []Step{{Key: "shared-key", Trigger: "real-match-second"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Key: "shared-key", Trigger: "real-match-second"},
+			},
+		},
+		"a chain of watches sharing a key converges on the real match regardless of collision order": {
+			ChangedFiles: []string{"docs/generated/api.md", "services/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					// Doesn't match any changed file -> "no changes" placeholder.
+					Paths: []string{"unrelated/"},
+					Steps:  []Step{{Key: "shared-key", Trigger: "step-a"}},
+				},
+				{
+					// Matches docs/generated/api.md, but that match is skip_path-excluded
+					// -> more specific placeholder, supersedes step-a's in place.
+					Paths:     []string{"docs/"},
+					SkipPaths: []string{"docs/generated/"},
+					Steps:      []Step{{Key: "shared-key", Trigger: "step-b"}},
+				},
+				{
+					// Real match -> supersedes step-b's placeholder in place.
+					Paths: []string{"services/"},
+					Steps:  []Step{{Key: "shared-key", Trigger: "step-c"}},
+				},
+				{
+					// Doesn't match -> would-be placeholder, but a real match already
+					// holds this key, so it's dropped rather than overwriting step-c.
+					Paths: []string{"still-unrelated/"},
+					Steps:  []Step{{Key: "shared-key", Trigger: "step-d"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Key: "shared-key", Trigger: "step-c"},
+			},
+		},
+		"except-path placeholder outranks a same-key no-changes placeholder (no-changes recorded first)": {
+			ChangedFiles: []string{"b/config.yml"},
+			WatchConfigs: []WatchConfig{
+				{
+					// Doesn't match -> "no changes" placeholder, recorded first.
+					Paths: []string{"a/"},
+					Steps:  []Step{{Command: "echo a", Key: "dup"}},
+				},
+				{
+					// Excepted -> more specific placeholder, recorded second.
+					Paths:       []string{"b/"},
+					ExceptPaths: []string{"b/config.yml"},
+					Steps:        []Step{{Command: "echo b", Key: "dup"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Command: "echo b", Key: "dup", Skip: skipExceptPathMessage},
+			},
+		},
+		"except-path placeholder outranks a same-key no-changes placeholder (except-path recorded first)": {
+			ChangedFiles: []string{"b/config.yml"},
+			WatchConfigs: []WatchConfig{
+				{
+					// Excepted -> more specific placeholder, recorded first this time.
+					Paths:       []string{"b/"},
+					ExceptPaths: []string{"b/config.yml"},
+					Steps:        []Step{{Command: "echo b", Key: "dup"}},
+				},
+				{
+					// Doesn't match -> "no changes" placeholder, recorded second.
+					Paths: []string{"a/"},
+					Steps:  []Step{{Command: "echo a", Key: "dup"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Command: "echo b", Key: "dup", Skip: skipExceptPathMessage},
+			},
+		},
+		"skip_path-excluded and except-path placeholders are equal priority - first recorded wins": {
+			ChangedFiles: []string{"a/README.md", "b/config.yml"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:     []string{"a/"},
+					SkipPaths: []string{"a/README.md"},
+					Steps:      []Step{{Command: "echo a", Key: "dup"}},
+				},
+				{
+					Paths:       []string{"b/"},
+					ExceptPaths: []string{"b/config.yml"},
+					Steps:        []Step{{Command: "echo b", Key: "dup"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Command: "echo a", Key: "dup", Skip: skipPathExcludedMessage},
+			},
+		},
+		"except_path with no path configured still gets a skip placeholder": {
+			ChangedFiles: []string{"generated/schema.ts"},
+			WatchConfigs: []WatchConfig{
+				{
+					ExceptPaths: []string{"generated/"},
+					Steps:        []Step{{Command: "echo deploy-something"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Command: "echo deploy-something", Skip: skipExceptPathMessage},
 			},
 		},
 	}

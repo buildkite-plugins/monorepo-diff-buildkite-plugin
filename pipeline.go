@@ -22,6 +22,20 @@ const skipNoChangesMessage = "No changes detected"
 // watch path did match a changed file, but every match was excluded via skip_path.
 const skipPathExcludedMessage = "Matched changes were excluded by skip_path"
 
+// skipExceptPathMessage is used instead of skipNoChangesMessage when the
+// watch was excluded entirely via except_path.
+const skipExceptPathMessage = "Excluded by except_path"
+
+// skipReasonPriority ranks skip placeholder reasons by how specifically they
+// explain why a step didn't run for real. When two watches sharing a Key
+// both produce placeholders, the more specific reason supersedes the less
+// specific one; reasons of equal priority keep whichever was recorded first.
+var skipReasonPriority = map[string]int{
+	skipNoChangesMessage:    0,
+	skipPathExcludedMessage: 1,
+	skipExceptPathMessage:   1,
+}
+
 // WaitStep represents a Buildkite Wait Step
 // https://buildkite.com/docs/pipelines/wait-step
 // We can't use Step here since the value for Wait is always nil
@@ -231,8 +245,10 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 					// This key already has a real match; drop the redundant placeholder.
 					return
 				case existing.Skip != nil && s.Skip != nil:
-					// Both are placeholders; prefer the more specific reason.
-					if existing.Skip == skipNoChangesMessage && s.Skip == skipPathExcludedMessage {
+					// Both are placeholders; the more specific reason wins.
+					existingReason, _ := existing.Skip.(string)
+					newReason, _ := s.Skip.(string)
+					if skipReasonPriority[newReason] > skipReasonPriority[existingReason] {
 						steps[i] = s
 					}
 					return
@@ -247,6 +263,12 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 		if s.Key != "" {
 			keyIndex[s.Key] = len(steps) - 1
 		}
+	}
+
+	appendSkipPlaceholder := func(step Step, reason string) {
+		skipped := step
+		skipped.Skip = reason
+		appendStep(skipped)
 	}
 
 	for _, w := range watch {
@@ -275,6 +297,11 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 		}
 
 		if except {
+			if skipOnNoChanges {
+				for _, s := range w.Steps {
+					appendSkipPlaceholder(s, skipExceptPathMessage)
+				}
+			}
 			continue
 		}
 
@@ -325,9 +352,7 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 				reason = skipPathExcludedMessage
 			}
 			for _, s := range w.Steps {
-				skippedStep := s
-				skippedStep.Skip = reason
-				appendStep(skippedStep)
+				appendSkipPlaceholder(s, reason)
 			}
 		}
 	}
