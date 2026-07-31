@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func defaultPlugin() Plugin {
@@ -22,18 +24,18 @@ func defaultPluginWithDefault() Plugin {
 	ret.Watch = []WatchConfig{
 		{
 			Paths: []string{".buildkite/**/*"},
-			Step: Step{
+			Steps: []Step{{
 				Command: "echo hello world",
 				Label:   "Example label",
-			},
+			}},
 		},
 		{
 			Default: true,
 			Paths:   []string{},
-			Step: Step{
+			Steps: []Step{{
 				Command: "echo default hello world",
 				Label:   "Default label",
-			},
+			}},
 		},
 	}
 
@@ -221,7 +223,7 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"watch-path-1"},
-				Step: Step{
+				Steps: []Step{{
 					Trigger: "service-2",
 					Build: Build{
 						Message: "some message",
@@ -234,11 +236,11 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 							"env3": "env-3",
 						},
 					},
-				},
+				}},
 			},
 			{
 				Paths: []string{"watch-path-1"},
-				Step: Step{
+				Steps: []Step{{
 					Command: "echo hello-world",
 					Env: map[string]string{
 						"env1": "env-1",
@@ -264,11 +266,11 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						{GithubStatus: GithubStatusNotification{Context: "my-custom-status"}},
 						{Slack: "@someuser", Condition: "build.state === 'passed'"},
 					},
-				},
+				}},
 			},
 			{
 				Paths: []string{"watch-path-1", "watch-path-2"},
-				Step: Step{
+				Steps: []Step{{
 					Trigger: "service-1",
 					Label:   "hello",
 					Build: Build{
@@ -294,11 +296,11 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 					SoftFail: []interface{}{map[string]interface{}{
 						"exit_status": float64(127),
 					}},
-				},
+				}},
 			},
 			{
 				Paths: []string{"watch-path-1"},
-				Step: Step{
+				Steps: []Step{{
 					Group:   "my group",
 					Command: "echo hello-group",
 					Env: map[string]string{
@@ -307,11 +309,11 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						"env3": "env-3",
 					},
 					SoftFail: true,
-				},
+				}},
 			},
 			{
 				Paths: []string{"watch-path-3"},
-				Step: Step{
+				Steps: []Step{{
 					Group: "my group",
 					Steps: []Step{
 						{
@@ -331,7 +333,7 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 		},
 	}
@@ -544,14 +546,14 @@ func TestPluginWithBuildConfigFromEnv(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{".buildkite/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Trigger: "foo-service",
 					Build: Build{
 						Message: "fix: temp file not correctly deleted",
 						Branch:  "go-rewrite",
 						Commit:  "123",
 					},
-				},
+				}},
 			},
 		},
 	}
@@ -629,25 +631,25 @@ func TestPluginWithMultiplePluginVersions(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"foo-service/"},
-				Step: Step{
+				Steps: []Step{{
 					Trigger: "foo-service",
 					Build: Build{
 						Message: "fix: temp file not correctly deleted",
 						Branch:  "go-rewrite",
 						Commit:  "123",
 					},
-				},
+				}},
 			},
 			{
 				Paths: []string{"bar-service/"},
-				Step: Step{
+				Steps: []Step{{
 					Trigger: "foo-service",
 					Build: Build{
 						Message: "fix: temp file not correctly deleted",
 						Branch:  "go-rewrite",
 						Commit:  "123",
 					},
-				},
+				}},
 			},
 		},
 	}
@@ -685,11 +687,11 @@ func TestPluginShouldPreserveStepPlugins(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{".buildkite/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Plugins: []map[string]interface{}{
 						{"some-plugin#v1": map[string]interface{}{"foo": "bar"}},
 					},
-				},
+				}},
 			},
 		},
 	}
@@ -725,9 +727,9 @@ func TestPluginShouldPreserveStepBranches(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{".buildkite/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Branches: "!main feature/*",
-				},
+				}},
 			},
 		},
 	}
@@ -779,7 +781,7 @@ func TestPluginMetadataOnlyAppliedToTriggerSteps(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"app/"},
-				Step: Step{
+				Steps: []Step{{
 					Trigger: "app-deploy",
 					Build: Build{
 						Message: "fix: temp file not correctly deleted",
@@ -790,17 +792,17 @@ func TestPluginMetadataOnlyAppliedToTriggerSteps(t *testing.T) {
 							"plugin_level_key": "plugin_level_value",
 						},
 					},
-				},
+				}},
 			},
 			{
 				Paths: []string{"test/"},
-				Step: Step{
+				Steps: []Step{{
 					Command: "echo test command",
 					// Build defaults are not set for command steps
 					Build: Build{
 						// No metadata should be set here
 					},
-				},
+				}},
 			},
 		},
 	}
@@ -810,11 +812,11 @@ func TestPluginMetadataOnlyAppliedToTriggerSteps(t *testing.T) {
 	}
 
 	// Explicitly verify that command step doesn't have metadata
-	commandStep := got.Watch[1].Step
+	commandStep := got.Watch[1].Steps[0]
 	assert.Nil(t, commandStep.Build.Metadata, "Command step should not have metadata set")
 
 	// Explicitly verify that trigger step has metadata
-	triggerStep := got.Watch[0].Step
+	triggerStep := got.Watch[0].Steps[0]
 	assert.NotNil(t, triggerStep.Build.Metadata, "Trigger step should have metadata set")
 	assert.Equal(t, "step_level_value", triggerStep.Build.Metadata["step_level_key"])
 	assert.Equal(t, "plugin_level_value", triggerStep.Build.Metadata["plugin_level_key"])
@@ -849,13 +851,13 @@ func TestPluginLevelMetadataNotAppliedToCommandSteps(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify that trigger step gets plugin-level metadata
-	triggerStep := got.Watch[0].Step
+	triggerStep := got.Watch[0].Steps[0]
 	assert.Equal(t, "app-deploy", triggerStep.Trigger)
 	assert.NotNil(t, triggerStep.Build.Metadata)
 	assert.Equal(t, "bar", triggerStep.Build.Metadata["foo"])
 
 	// Verify that command step does NOT get plugin-level metadata
-	commandStep := got.Watch[1].Step
+	commandStep := got.Watch[1].Steps[0]
 	assert.Equal(t, "echo Make Changes to Bin", commandStep.Command)
 	assert.Nil(t, commandStep.Build.Metadata, "Command step should not have metadata applied")
 }
@@ -886,10 +888,10 @@ func TestPluginShouldPreserveStepCondition(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"service/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Command:   "echo deploy",
 					Condition: "build.branch == 'main' && build.pull_request.id == null",
-				},
+				}},
 			},
 		},
 	}
@@ -944,16 +946,16 @@ func TestPluginShouldClearRawEnvFromNestedSteps(t *testing.T) {
 
 	// Verify the structure is correct
 	assert.Equal(t, 1, len(got.Watch))
-	assert.Equal(t, "test-group", got.Watch[0].Step.Group)
-	assert.Equal(t, 2, len(got.Watch[0].Step.Steps))
+	assert.Equal(t, "test-group", got.Watch[0].Steps[0].Group)
+	assert.Equal(t, 2, len(got.Watch[0].Steps[0].Steps))
 
 	// Verify nested steps have correct env values
-	firstStep := got.Watch[0].Step.Steps[0]
+	firstStep := got.Watch[0].Steps[0].Steps[0]
 	assert.Equal(t, "test-pipeline", firstStep.Trigger)
 	assert.Equal(t, "pr", firstStep.Build.Env["BUNDLE_BUILD"])
 	assert.Equal(t, "plugin-value", firstStep.Build.Env["PLUGIN_ENV"])
 
-	secondStep := got.Watch[0].Step.Steps[1]
+	secondStep := got.Watch[0].Steps[0].Steps[1]
 	assert.Equal(t, "test-pipeline", secondStep.Trigger)
 	assert.Equal(t, "master", secondStep.Build.Env["BUNDLE_BUILD"])
 	assert.Equal(t, "plugin-value", secondStep.Build.Env["PLUGIN_ENV"])
@@ -990,9 +992,9 @@ func TestPluginShouldProcessNotifyInNestedSteps(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify nested step exists
-	assert.Equal(t, 1, len(got.Watch[0].Step.Steps))
+	assert.Equal(t, 1, len(got.Watch[0].Steps[0].Steps))
 
-	nestedStep := got.Watch[0].Step.Steps[0]
+	nestedStep := got.Watch[0].Steps[0].Steps[0]
 
 	// Verify RawNotify is cleared
 	assert.Nil(t, nestedStep.RawNotify, "RawNotify should be nil after processing")
@@ -1028,10 +1030,10 @@ func TestPluginShouldPreserveDependsOnString(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"service/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Command:   "echo deploy",
 					DependsOn: "build-step",
-				},
+				}},
 			},
 		},
 	}
@@ -1067,7 +1069,7 @@ func TestPluginShouldPreserveDependsOnArray(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"service/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Trigger: "deploy-pipeline",
 					Build: Build{
 						Message: "fix: temp file not correctly deleted",
@@ -1075,7 +1077,7 @@ func TestPluginShouldPreserveDependsOnArray(t *testing.T) {
 						Commit:  "123",
 					},
 					DependsOn: []interface{}{"build-step", "test-step"},
-				},
+				}},
 			},
 		},
 	}
@@ -1122,7 +1124,7 @@ func TestPluginEnvWithEqualsSignsAndSpacesInValues(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"services/"},
-				Step: Step{
+				Steps: []Step{{
 					Command: "echo test",
 					Env: map[string]string{
 						"EXTRA_BUILD_ARGS": "--build-arg=ARG1=value1",
@@ -1130,7 +1132,7 @@ func TestPluginEnvWithEqualsSignsAndSpacesInValues(t *testing.T) {
 						"SPACE_VALUE":      "value with spaces",
 						"COMPLEX":          "\"--opt1=val1 --opt2=val2\"",
 					},
-				},
+				}},
 			},
 		},
 	}
@@ -1175,13 +1177,13 @@ func TestPluginShouldPreserveSecretsAsMap(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"service/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Command: "echo deploy",
 					Secrets: map[string]interface{}{
 						"DATABRICKS_HOST":  "databricks_host_secret",
 						"DATABRICKS_TOKEN": "databricks_token_secret",
 					},
-				},
+				}},
 			},
 		},
 	}
@@ -1217,10 +1219,10 @@ func TestPluginShouldPreserveSecretsAsArray(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"service/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Command: "echo deploy",
 					Secrets: []interface{}{"API_ACCESS_TOKEN", "DATABASE_PASSWORD"},
-				},
+				}},
 			},
 		},
 	}
@@ -1262,18 +1264,18 @@ func TestPluginShouldPreserveSecretsInNestedSteps(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, 1, len(got.Watch))
-	assert.Equal(t, "deploy group", got.Watch[0].Step.Group)
-	assert.Equal(t, 2, len(got.Watch[0].Step.Steps))
+	assert.Equal(t, "deploy group", got.Watch[0].Steps[0].Group)
+	assert.Equal(t, 2, len(got.Watch[0].Steps[0].Steps))
 
 	// Verify first nested step has secrets as map
-	firstStep := got.Watch[0].Step.Steps[0]
+	firstStep := got.Watch[0].Steps[0].Steps[0]
 	assert.Equal(t, "echo deploy uat", firstStep.Command)
 	secretsMap, ok := firstStep.Secrets.(map[string]interface{})
 	assert.True(t, ok, "first step secrets should be a map")
 	assert.Equal(t, "uat_db_host", secretsMap["DB_HOST"])
 
 	// Verify second nested step has secrets as array
-	secondStep := got.Watch[0].Step.Steps[1]
+	secondStep := got.Watch[0].Steps[0].Steps[1]
 	assert.Equal(t, "echo deploy prod", secondStep.Command)
 	secretsArray, ok := secondStep.Secrets.([]interface{})
 	assert.True(t, ok, "second step secrets should be an array")
@@ -1307,10 +1309,10 @@ func TestPluginAcceptsArtifactPathsFieldName(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"service/**/*"},
-				Step: Step{
+				Steps: []Step{{
 					Command:       "echo test",
 					ArtifactPaths: []string{"logs/**/*", "coverage/**/*"},
-				},
+				}},
 			},
 		},
 	}
@@ -1590,9 +1592,9 @@ func TestStepWithMapEnv(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, got.Watch, 1)
-	assert.Equal(t, "test", got.Watch[0].Step.Env["NODE_ENV"])
-	assert.Equal(t, "4", got.Watch[0].Step.Env["MAX_WORKERS"])
-	assert.Equal(t, "true", got.Watch[0].Step.Env["COVERAGE"])
+	assert.Equal(t, "test", got.Watch[0].Steps[0].Env["NODE_ENV"])
+	assert.Equal(t, "4", got.Watch[0].Steps[0].Env["MAX_WORKERS"])
+	assert.Equal(t, "true", got.Watch[0].Steps[0].Env["COVERAGE"])
 }
 
 func TestBuildWithMapEnv(t *testing.T) {
@@ -1620,8 +1622,8 @@ func TestBuildWithMapEnv(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, got.Watch, 1)
-	assert.Equal(t, "staging", got.Watch[0].Step.Build.Env["DEPLOY_ENV"])
-	assert.Equal(t, "3", got.Watch[0].Step.Build.Env["REPLICAS"])
+	assert.Equal(t, "staging", got.Watch[0].Steps[0].Build.Env["DEPLOY_ENV"])
+	assert.Equal(t, "3", got.Watch[0].Steps[0].Build.Env["REPLICAS"])
 }
 
 func TestNestedStepsWithMapEnv(t *testing.T) {
@@ -1657,9 +1659,9 @@ func TestNestedStepsWithMapEnv(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, got.Watch, 1)
-	assert.Len(t, got.Watch[0].Step.Steps, 2)
-	assert.Equal(t, "value1", got.Watch[0].Step.Steps[0].Env["TEST"])
-	assert.Equal(t, "value2", got.Watch[0].Step.Steps[1].Env["TEST"])
+	assert.Len(t, got.Watch[0].Steps[0].Steps, 2)
+	assert.Equal(t, "value1", got.Watch[0].Steps[0].Steps[0].Env["TEST"])
+	assert.Equal(t, "value2", got.Watch[0].Steps[0].Steps[1].Env["TEST"])
 }
 
 func TestMixedEnvFormats(t *testing.T) {
@@ -1692,8 +1694,8 @@ func TestMixedEnvFormats(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "plugin-value", got.Env["PLUGIN_VAR"])
 	assert.Equal(t, "from-env", got.Env["GLOBAL_VAR"])
-	assert.Equal(t, "step-value", got.Watch[0].Step.Env["STEP_VAR"])
-	assert.Equal(t, "8080", got.Watch[0].Step.Env["PORT"])
+	assert.Equal(t, "step-value", got.Watch[0].Steps[0].Env["STEP_VAR"])
+	assert.Equal(t, "8080", got.Watch[0].Steps[0].Env["PORT"])
 }
 
 func TestMapEnvWithOSEnvReading(t *testing.T) {
@@ -1858,4 +1860,84 @@ func TestPluginParsesRegexPaths(t *testing.T) {
 	got, err := initializePlugin(param)
 	assert.NoError(t, err)
 	assert.True(t, got.Watch[0].RegexPaths)
+}
+
+func TestPluginConfigSingleObjectProducesOneStep(t *testing.T) {
+	// Regression check: a single step object under "config" (today's
+	// existing form) must still produce exactly one entry in Steps.
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "services/",
+					"config": {
+						"command": "echo test"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.Len(t, got.Watch, 1)
+	assert.Len(t, got.Watch[0].Steps, 1)
+	assert.Equal(t, "echo test", got.Watch[0].Steps[0].Command)
+}
+
+func TestPluginConfigArrayProducesMultipleSteps(t *testing.T) {
+	// "config" can also be an array of step objects, each becoming an
+	// independent generated step (not nested in an implicit group).
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "services/",
+					"config": [
+						{ "command": "echo first step" },
+						{ "trigger": "downstream-pipeline" }
+					]
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+	assert.Len(t, got.Watch, 1)
+	assert.Len(t, got.Watch[0].Steps, 2)
+	assert.Equal(t, "echo first step", got.Watch[0].Steps[0].Command)
+	assert.Equal(t, "downstream-pipeline", got.Watch[0].Steps[1].Trigger)
+
+	// stepsToTrigger / pipeline generation should produce both as separate
+	// top-level steps, not nested under a group, when the path matches.
+	steps, err := stepsToTrigger([]string{"services/main.go"}, got.Watch)
+	assert.NoError(t, err)
+	assert.Len(t, steps, 2)
+	assert.Equal(t, "", steps[0].Group)
+	assert.Equal(t, "", steps[1].Group)
+	assert.Equal(t, "echo first step", steps[0].Command)
+	assert.Equal(t, "downstream-pipeline", steps[1].Trigger)
+}
+
+func TestStepMatrixRoundTripsToYAML(t *testing.T) {
+	// The "matrix" step attribute is a pure pass-through; unmarshaling it
+	// from JSON and then marshaling back to YAML should preserve it as-is.
+	data := []byte(`{
+		"command": "echo test",
+		"matrix": {"setup": {"os": ["linux", "windows"]}}
+	}`)
+
+	var step Step
+	err := json.Unmarshal(data, &step)
+	assert.NoError(t, err)
+
+	out, err := yaml.Marshal(step)
+	assert.NoError(t, err)
+
+	yamlStr := string(out)
+	assert.Contains(t, yamlStr, "matrix:")
+	assert.Contains(t, yamlStr, "setup:")
+	assert.Contains(t, yamlStr, "- linux")
+	assert.Contains(t, yamlStr, "- windows")
 }

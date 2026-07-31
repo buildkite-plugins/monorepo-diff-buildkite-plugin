@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+* Support `matrix` step attribute as a pass-through to the generated pipeline YAML
+* Allow `config` to be a list of step configs, each becoming an independent generated step
+
 ## [v1.11.0](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.10.0...v1.11.0) (2026-07-03)
 
 ### Added

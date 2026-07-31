@@ -251,7 +251,7 @@ func TestStepsToTriggerWithEmojiPaths(t *testing.T) {
 	watch := []WatchConfig{
 		{
 			Paths: []string{"projects/**"},
-			Step:  Step{Trigger: "test-pipeline"},
+			Steps: []Step{{Trigger: "test-pipeline"}},
 		},
 	}
 
@@ -271,19 +271,19 @@ func TestPipelinesToTriggerGetsListOfPipelines(t *testing.T) {
 	watch := []WatchConfig{
 		{
 			Paths: []string{"watch-path-1"},
-			Step:  Step{Trigger: "service-1"},
+			Steps: []Step{{Trigger: "service-1"}},
 		},
 		{
 			Paths: []string{"watch-path-2/", "watch-path-3/", "watch-path-4"},
-			Step:  Step{Trigger: "service-2"},
+			Steps: []Step{{Trigger: "service-2"}},
 		},
 		{
 			Paths: []string{"watch-path-5"},
-			Step:  Step{Trigger: "service-3"},
+			Steps: []Step{{Trigger: "service-3"}},
 		},
 		{
 			Paths: []string{"watch-path-2"},
-			Step:  Step{Trigger: "service-4"},
+			Steps: []Step{{Trigger: "service-4"}},
 		},
 	}
 
@@ -318,7 +318,7 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			},
 			WatchConfigs: []WatchConfig{{
 				Paths: []string{"watch-path-1"},
-				Step:  Step{Trigger: "service-1"},
+				Steps: []Step{{Trigger: "service-1"}},
 			}},
 			Expected: []Step{
 				{Trigger: "service-1"},
@@ -332,11 +332,11 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"watch-path-1"},
-					Step:  Step{Trigger: "service-1"},
+					Steps: []Step{{Trigger: "service-1"}},
 				},
 				{
 					Paths: []string{"watch-path-2"},
-					Step:  Step{Trigger: "service-2"},
+					Steps: []Step{{Trigger: "service-2"}},
 				},
 			},
 			Expected: []Step{
@@ -352,7 +352,7 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"*.txt"},
-					Step:  Step{Trigger: "txt"},
+					Steps: []Step{{Trigger: "txt"}},
 				},
 			},
 			Expected: []Step{
@@ -366,7 +366,7 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"docs/*.txt"},
-					Step:  Step{Trigger: "txt"},
+					Steps: []Step{{Trigger: "txt"}},
 				},
 			},
 			Expected: []Step{
@@ -380,7 +380,7 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"**/text.txt"},
-					Step:  Step{Trigger: "txt"},
+					Steps: []Step{{Trigger: "txt"}},
 				},
 			},
 			Expected: []Step{
@@ -394,7 +394,7 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"*/*.txt"},
-					Step:  Step{Trigger: "txt"},
+					Steps: []Step{{Trigger: "txt"}},
 				},
 			},
 			Expected: []Step{
@@ -408,7 +408,7 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"**/*.txt"},
-					Step:  Step{Trigger: "txt"},
+					Steps: []Step{{Trigger: "txt"}},
 				},
 			},
 			Expected: []Step{
@@ -422,15 +422,15 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"app/"},
-					Step:  Step{Trigger: "app-deploy"},
+					Steps: []Step{{Trigger: "app-deploy"}},
 				},
 				{
 					Paths: []string{"test/bin/"},
-					Step:  Step{Command: "echo Make Changes to Bin"},
+					Steps: []Step{{Command: "echo Make Changes to Bin"}},
 				},
 				{
 					Default: struct{}{},
-					Step:    Step{Command: "buildkite-agent pipeline upload other_tests.yml"},
+					Steps:   []Step{{Command: "buildkite-agent pipeline upload other_tests.yml"}},
 				},
 			},
 			Expected: []Step{
@@ -444,12 +444,12 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"watch-path"},
-					Step:  Step{Trigger: "service-1"},
+					Steps: []Step{{Trigger: "service-1"}},
 				},
 				{
 					Paths:     []string{"watch-path"},
 					SkipPaths: []string{"watch-path/text.txt"},
-					Step:      Step{Trigger: "service-2"},
+					Steps:     []Step{{Trigger: "service-2"}},
 				},
 			},
 			Expected: []Step{
@@ -463,12 +463,12 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"*.txt"},
-					Step:  Step{Trigger: "service-1"},
+					Steps: []Step{{Trigger: "service-1"}},
 				},
 				{
 					Paths:     []string{"*.txt"},
 					SkipPaths: []string{"*.secret.txt"},
-					Step:      Step{Trigger: "service-2"},
+					Steps:     []Step{{Trigger: "service-2"}},
 				},
 			},
 			Expected: []Step{
@@ -482,12 +482,12 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"**/*.txt"},
-					Step:  Step{Trigger: "service-1"},
+					Steps: []Step{{Trigger: "service-1"}},
 				},
 				{
 					Paths:     []string{"**/*.txt"},
 					SkipPaths: []string{"docs/*.txt"},
-					Step:      Step{Trigger: "service-2"},
+					Steps:     []Step{{Trigger: "service-2"}},
 				},
 			},
 			Expected: []Step{
@@ -502,12 +502,12 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"**/*.txt"},
-					Step:  Step{Trigger: "service-1"},
+					Steps: []Step{{Trigger: "service-1"}},
 				},
 				{
 					Paths:     []string{"**/*.txt"},
 					SkipPaths: []string{"docs/*.secret.txt"},
-					Step:      Step{Trigger: "service-2"},
+					Steps:     []Step{{Trigger: "service-2"}},
 				},
 			},
 			Expected: []Step{
@@ -522,7 +522,7 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					SkipPaths: []string{"docs/*.secret.txt"},
-					Step:      Step{Trigger: "service-1"},
+					Steps:     []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected: []Step{},
@@ -537,11 +537,11 @@ func TestPipelinesStepsToTrigger(t *testing.T) {
 				{
 					Paths:       []string{"**/*"},
 					ExceptPaths: []string{"main/other/**/*"},
-					Step:        Step{Trigger: "service-1"},
+					Steps:       []Step{{Trigger: "service-1"}},
 				},
 				{
 					Paths: []string{"main/other/**/*"},
-					Step:  Step{Trigger: "service-2"},
+					Steps: []Step{{Trigger: "service-2"}},
 				},
 			},
 			Expected: []Step{
@@ -574,7 +574,7 @@ func TestRegexPaths(t *testing.T) {
 				{
 					Paths:      []string{`src/(?!__tests__/).*\.[tj]sx?`},
 					RegexPaths: true,
-					Step:       Step{Trigger: "service-1"},
+					Steps:      []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected: []Step{
@@ -589,7 +589,7 @@ func TestRegexPaths(t *testing.T) {
 				{
 					Paths:      []string{`src/(?!__tests__/).*\.[tj]sx?`},
 					RegexPaths: true,
-					Step:       Step{Trigger: "service-1"},
+					Steps:      []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected: []Step{},
@@ -602,7 +602,7 @@ func TestRegexPaths(t *testing.T) {
 				{
 					Paths:      []string{`src/(?!pulumi|ci-generators|desktop|mobile|test)(?!.*\.test\.)(?!.*\.snap$)(?!.*/__test__/)(?!.*/__mocks__/)(?!.*/__snapshots__/).*\.[tj]sx?`},
 					RegexPaths: true,
-					Step:       Step{Trigger: "service-1"},
+					Steps:      []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected: []Step{
@@ -619,7 +619,7 @@ func TestRegexPaths(t *testing.T) {
 					Paths:      []string{`src/.*\.[tj]sx?`},
 					SkipPaths:  []string{`.*\.test\.[tj]sx?`},
 					RegexPaths: true,
-					Step:       Step{Trigger: "service-1"},
+					Steps:      []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected: []Step{
@@ -635,7 +635,7 @@ func TestRegexPaths(t *testing.T) {
 					Paths:       []string{`src/.*`},
 					ExceptPaths: []string{`src/generated/.*`},
 					RegexPaths:  true,
-					Step:        Step{Trigger: "service-1"},
+					Steps:       []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected: []Step{},
@@ -648,7 +648,7 @@ func TestRegexPaths(t *testing.T) {
 				{
 					Paths:      []string{`src/[invalid`},
 					RegexPaths: true,
-					Step:       Step{Trigger: "service-1"},
+					Steps:      []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected:    []Step{},
@@ -662,7 +662,7 @@ func TestRegexPaths(t *testing.T) {
 				{
 					Paths:      []string{`src/**/*.tsx`},
 					RegexPaths: false,
-					Step:       Step{Trigger: "service-1"},
+					Steps:      []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected: []Step{
@@ -678,11 +678,11 @@ func TestRegexPaths(t *testing.T) {
 				{
 					Paths:      []string{`src/(?!__tests__/).*\.tsx`},
 					RegexPaths: true,
-					Step:       Step{Trigger: "frontend"},
+					Steps:      []Step{{Trigger: "frontend"}},
 				},
 				{
 					Paths: []string{"services/api/"},
-					Step:  Step{Trigger: "backend"},
+					Steps: []Step{{Trigger: "backend"}},
 				},
 			},
 			Expected: []Step{
@@ -699,7 +699,7 @@ func TestRegexPaths(t *testing.T) {
 					Paths:      []string{`src/.*`},
 					SkipPaths:  []string{`src/[invalid`},
 					RegexPaths: true,
-					Step:       Step{Trigger: "service-1"},
+					Steps:      []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected:    []Step{},
@@ -713,7 +713,7 @@ func TestRegexPaths(t *testing.T) {
 				{
 					Paths:      []string{`src/.*\.go`},
 					RegexPaths: true,
-					Step:       Step{Trigger: "service-1"},
+					Steps:      []Step{{Trigger: "service-1"}},
 				},
 			},
 			Expected: []Step{},
@@ -1537,11 +1537,11 @@ func TestStepsToTrigger_Issue83(t *testing.T) {
 	watch := []WatchConfig{
 		{
 			Paths: []string{"some-path/**"},
-			Step:  Step{}, // Empty step - should be filtered
+			Steps: []Step{{}}, // Empty step - should be filtered
 		},
 		{
 			Paths: []string{"other-path/**"},
-			Step:  Step{Command: "echo valid"},
+			Steps: []Step{{Command: "echo valid"}},
 		},
 	}
 
@@ -1562,11 +1562,11 @@ func TestStepsToTrigger_DefaultWithEmptyStep(t *testing.T) {
 	watch := []WatchConfig{
 		{
 			Paths: []string{"app/"},
-			Step:  Step{Command: "echo app"},
+			Steps: []Step{{Command: "echo app"}},
 		},
 		{
 			Default: struct{}{},
-			Step:    Step{}, // Empty default - should be filtered
+			Steps:   []Step{{}}, // Empty default - should be filtered
 		},
 	}
 
@@ -1583,11 +1583,11 @@ func TestStepsToTrigger_AllStepsInvalid(t *testing.T) {
 	watch := []WatchConfig{
 		{
 			Paths: []string{"path1/"},
-			Step:  Step{},
+			Steps: []Step{{}},
 		},
 		{
 			Paths: []string{"path2/"},
-			Step:  Step{Label: "no command"},
+			Steps: []Step{{Label: "no command"}},
 		},
 	}
 
@@ -1604,10 +1604,10 @@ func TestStepsToTrigger_EmptyGroupInConfig(t *testing.T) {
 	watch := []WatchConfig{
 		{
 			Paths: []string{"services/"},
-			Step: Step{
+			Steps: []Step{{
 				Group: "deploy",
 				Steps: []Step{}, // Empty group
-			},
+			}},
 		},
 	}
 
@@ -1624,15 +1624,15 @@ func TestStepsToTrigger_ValidAndInvalidStepsMixed(t *testing.T) {
 	watch := []WatchConfig{
 		{
 			Paths: []string{"app/"},
-			Step:  Step{Command: "echo valid app"},
+			Steps: []Step{{Command: "echo valid app"}},
 		},
 		{
 			Paths: []string{"tests/"},
-			Step:  Step{}, // Invalid
+			Steps: []Step{{}}, // Invalid
 		},
 		{
 			Paths: []string{"deploy/"},
-			Step:  Step{Trigger: "deploy-pipeline"},
+			Steps: []Step{{Trigger: "deploy-pipeline"}},
 		},
 	}
 

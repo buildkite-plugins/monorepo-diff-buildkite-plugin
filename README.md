@@ -144,6 +144,34 @@ The plugin validates all step configurations before uploading the pipeline. Inva
       - command: "deploy.sh"
 ```
 
+#### Multiple steps per `config`
+
+`config` can also be a list of step configs instead of a single object. Each entry becomes an independent generated step (they are **not** nested under an implicit group) — the same path/`skip_path`/`except_path` matching rules that apply to a single-object `config` apply equally to every entry in the list.
+
+```yaml
+- path: services/api/
+  config:
+    - command: "npm test"
+      label: "Test API"
+    - trigger: "api-deploy"
+      label: "Deploy API"
+```
+
+When a file under `services/api/` changes, both the `npm test` command step and the `api-deploy` trigger step are generated as separate top-level steps.
+
+#### `matrix`
+
+A step's `config` can include a [build matrix](https://buildkite.com/docs/pipelines/configure/workflows/build-matrix) via the `matrix` attribute. It is passed through untouched to the generated pipeline step.
+
+```yaml
+- path: services/api/
+  config:
+    command: "test.sh"
+    matrix:
+      setup:
+        os: ["linux", "windows"]
+```
+
 #### Plugins in Step Configurations
 
 The plugin preserves `plugins:` blocks when specified in command step configurations. This allows you to use Buildkite plugins within your monorepo-watched steps.
