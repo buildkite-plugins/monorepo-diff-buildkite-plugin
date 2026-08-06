@@ -172,17 +172,19 @@ teardown() {
   stub sha256sum \
     "* : echo '${mock_binary_checksum}  monorepo-diff-buildkite-plugin'"
 
-  # Stub curl: download binary and checksums.txt
-  # Need to match all possible architectures in checksums.txt
+  # Stub curl: download binary and checksums.txt. GoReleaser publishes checksums.txt
+  # with lowercase os/arch tokens (e.g. "linux_amd64"), never "Linux_amd64", regardless
+  # of the case `uname -s`/`uname -m` report on the host running the hook.
   stub curl \
     "-fL * -o * : echo '#!/bin/bash' > \"\${4}\"; echo 'echo test' >> \"\${4}\"; exit 0" \
-    "-fL * -o * : printf '%s\n' '${mock_binary_checksum}  monorepo-diff-buildkite-plugin_Darwin_amd64' '${mock_binary_checksum}  monorepo-diff-buildkite-plugin_Darwin_arm64' '${mock_binary_checksum}  monorepo-diff-buildkite-plugin_Linux_amd64' '${mock_binary_checksum}  monorepo-diff-buildkite-plugin_Linux_arm64' > \"\${4}\"; exit 0"
+    "-fL * -o * : printf '%s\n' '${mock_binary_checksum}  monorepo-diff-buildkite-plugin_darwin_amd64' '${mock_binary_checksum}  monorepo-diff-buildkite-plugin_darwin_arm64' '${mock_binary_checksum}  monorepo-diff-buildkite-plugin_linux_amd64' '${mock_binary_checksum}  monorepo-diff-buildkite-plugin_linux_arm64' > \"\${4}\"; exit 0"
 
   run "$PWD/hooks/command"
 
   assert_success
   assert_output --partial "Download successful"
   assert_output --partial "Checksum verification passed"
+  refute_output --partial "Checksum not found in checksums.txt"
 
   unstub curl
   unstub sha256sum
@@ -208,7 +210,7 @@ teardown() {
   # Stub curl: download binary and checksums.txt (with all architectures)
   stub curl \
     "-fL * -o * : echo '#!/bin/bash' > \"\${4}\"; echo 'echo test' >> \"\${4}\"; exit 0" \
-    "-fL * -o * : printf '%s\n' '${expected_checksum}  monorepo-diff-buildkite-plugin_Darwin_amd64' '${expected_checksum}  monorepo-diff-buildkite-plugin_Darwin_arm64' '${expected_checksum}  monorepo-diff-buildkite-plugin_Linux_amd64' '${expected_checksum}  monorepo-diff-buildkite-plugin_Linux_arm64' > \"\${4}\"; exit 0"
+    "-fL * -o * : printf '%s\n' '${expected_checksum}  monorepo-diff-buildkite-plugin_darwin_amd64' '${expected_checksum}  monorepo-diff-buildkite-plugin_darwin_arm64' '${expected_checksum}  monorepo-diff-buildkite-plugin_linux_amd64' '${expected_checksum}  monorepo-diff-buildkite-plugin_linux_arm64' > \"\${4}\"; exit 0"
 
   run "$PWD/hooks/command"
 
@@ -246,9 +248,9 @@ teardown() {
 
   # Stub curl: download checksums (first check), then binary, then checksums again (recovery check)
   stub curl \
-    "-fL * -o * : printf '%s\n' '${good_checksum}  monorepo-diff-buildkite-plugin_Darwin_amd64' '${good_checksum}  monorepo-diff-buildkite-plugin_Darwin_arm64' '${good_checksum}  monorepo-diff-buildkite-plugin_Linux_amd64' '${good_checksum}  monorepo-diff-buildkite-plugin_Linux_arm64' > \"\${4}\"; exit 0" \
+    "-fL * -o * : printf '%s\n' '${good_checksum}  monorepo-diff-buildkite-plugin_darwin_amd64' '${good_checksum}  monorepo-diff-buildkite-plugin_darwin_arm64' '${good_checksum}  monorepo-diff-buildkite-plugin_linux_amd64' '${good_checksum}  monorepo-diff-buildkite-plugin_linux_arm64' > \"\${4}\"; exit 0" \
     "-fL * -o * : echo '#!/bin/bash' > \"\${4}\"; echo 'echo recovered' >> \"\${4}\"; exit 0" \
-    "-fL * -o * : printf '%s\n' '${good_checksum}  monorepo-diff-buildkite-plugin_Darwin_amd64' '${good_checksum}  monorepo-diff-buildkite-plugin_Darwin_arm64' '${good_checksum}  monorepo-diff-buildkite-plugin_Linux_amd64' '${good_checksum}  monorepo-diff-buildkite-plugin_Linux_arm64' > \"\${4}\"; exit 0"
+    "-fL * -o * : printf '%s\n' '${good_checksum}  monorepo-diff-buildkite-plugin_darwin_amd64' '${good_checksum}  monorepo-diff-buildkite-plugin_darwin_arm64' '${good_checksum}  monorepo-diff-buildkite-plugin_linux_amd64' '${good_checksum}  monorepo-diff-buildkite-plugin_linux_arm64' > \"\${4}\"; exit 0"
 
   run "$PWD/hooks/command"
 
@@ -319,7 +321,7 @@ teardown() {
   # Stub curl: download binary and checksums
   stub curl \
     "-fL * -o * : echo '#!/bin/bash' > \"\${4}\"; echo 'echo test' >> \"\${4}\"; exit 0" \
-    "-fL * -o * : echo 'abc123  monorepo-diff-buildkite-plugin_Darwin_amd64' > \"\${4}\"; exit 0"
+    "-fL * -o * : echo 'abc123  monorepo-diff-buildkite-plugin_darwin_amd64' > \"\${4}\"; exit 0"
 
   # Ensure sha256sum, shasum, and sha256 are all unavailable by stubbing command -v
   # Note: This is tricky in bats. We'll rely on the implementation checking for these commands.
