@@ -43,8 +43,10 @@ check_cmd() {
 }
 
 get_architecture() {
-  _ostype="$(uname -s)"
-  _arch="$(uname -m)"
+  # GoReleaser publishes checksums.txt and binary asset names with a lowercase
+  # os token (e.g. "linux_amd64"), but `uname -s` reports "Linux"/"Darwin".
+  _ostype="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  _arch="$(uname -m)" # already normalized to lowercase amd64/arm64/ppc64le below
   _arm=("arm armhf aarch64 aarch64_be armv6l armv7l armv8l arm64e") # arm64
   _amd=("x86 x86pc i386 i686 i686-64 x64 x86_64 x86_64h athlon")    # amd64
 
