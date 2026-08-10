@@ -62,7 +62,7 @@ steps:
           parameters:
             GITHUB_TOKEN: /pipelines/buildkite/monorail-plugin-monorepo-diff-release/github-token
       - docker#v5.14.0:
-          image: "goreleaser/goreleaser:v2"
+          image: "goreleaser/goreleaser:v2.17.1"
           always-pull: true
           workdir: /plugin
           environment:
