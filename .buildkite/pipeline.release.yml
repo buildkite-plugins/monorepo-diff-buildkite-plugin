@@ -51,7 +51,7 @@ steps:
     env:
       AWS_REGION: us-east-1
     plugins:
-      - aws-assume-role-with-web-identity#v1.6.0:
+      - aws-assume-role-with-web-identity#v1.7.0:
           role-arn: arn:aws:iam::445615400570:role/pipeline-buildkite-monorail-plugin-monorepo-diff-release
           session-tags:
             - organization_slug
