@@ -945,6 +945,183 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				{Command: "echo deploy-something", Skip: skipExceptPathMessage},
 			},
 		},
+		"a matched watch with no steps configured does not suppress the default fallback (flag off)": {
+			ChangedFiles: []string{"app/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"app/"},
+				},
+				{
+					Default: true,
+					Steps:   []Step{{Command: "echo default"}},
+				},
+			},
+			SkipOnNoChanges: false,
+			Expected: []Step{
+				{Command: "echo default"},
+			},
+		},
+		"a matched watch with no steps configured does not suppress the default fallback (flag on)": {
+			ChangedFiles: []string{"app/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"app/"},
+				},
+				{
+					Default: true,
+					Steps:   []Step{{Command: "echo default"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Command: "echo default"},
+			},
+		},
+		"default step sharing a key with an unmatched watch's skip placeholder supersedes it, not a duplicate key": {
+			ChangedFiles: []string{"bar/x.txt"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"foo/"},
+					Steps: []Step{{Key: "k", Command: "run"}},
+				},
+				{
+					Default: true,
+					Steps:   []Step{{Key: "k", Command: "fallback"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Key: "k", Command: "fallback"},
+			},
+		},
+		"two keyless group containers wrapping the same nested key don't both survive when only one matches": {
+			ChangedFiles: []string{"services/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"services/"},
+					Steps: []Step{{
+						Group: "Deploy",
+						Steps: []Step{{Command: "echo deploy", Key: "deploy-job"}},
+					}},
+				},
+				{
+					Paths: []string{"other/"},
+					Steps: []Step{{
+						Group: "Deploy",
+						Steps: []Step{{Command: "echo deploy", Key: "deploy-job"}},
+					}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{
+					Group: "Deploy",
+					Steps: []Step{{Command: "echo deploy", Key: "deploy-job"}},
+				},
+			},
+		},
+		"two keyless group containers wrapping the same nested key don't both survive (reverse watch order)": {
+			ChangedFiles: []string{"services/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"other/"},
+					Steps: []Step{{
+						Group: "Deploy",
+						Steps: []Step{{Command: "echo deploy", Key: "deploy-job"}},
+					}},
+				},
+				{
+					Paths: []string{"services/"},
+					Steps: []Step{{
+						Group: "Deploy",
+						Steps: []Step{{Command: "echo deploy", Key: "deploy-job"}},
+					}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{
+					Group: "Deploy",
+					Steps: []Step{{Command: "echo deploy", Key: "deploy-job"}},
+				},
+			},
+		},
+		"a step whose keys collide with two different existing steps is left for Buildkite to reject, not silently merged into one": {
+			ChangedFiles: []string{"c/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"unrelated-a/"},
+					Steps: []Step{{Key: "A", Command: "echo a"}},
+				},
+				{
+					Paths: []string{"unrelated-b/"},
+					Steps: []Step{{Key: "B", Command: "echo b"}},
+				},
+				{
+					Paths: []string{"c/"},
+					Steps: []Step{{
+						Group: "Multi",
+						Key:   "A",
+						Steps: []Step{{Command: "echo c", Key: "B"}},
+					}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Key: "A", Command: "echo a", Skip: skipNoChangesMessage},
+				{Key: "B", Command: "echo b", Skip: skipNoChangesMessage},
+				{
+					Group: "Multi",
+					Key:   "A",
+					Steps: []Step{{Command: "echo c", Key: "B"}},
+				},
+			},
+		},
+		"a genuinely new key carried by a multi-owner-colliding step is still tracked for later collisions": {
+			ChangedFiles: []string{"c/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"unrelated-a/"},
+					Steps: []Step{{Key: "A", Command: "echo a"}},
+				},
+				{
+					Paths: []string{"unrelated-b/"},
+					Steps: []Step{{Key: "B", Command: "echo b"}},
+				},
+				{
+					Paths: []string{"c/"},
+					Steps: []Step{{
+						Group: "Multi",
+						Key:   "A",
+						Steps: []Step{
+							{Command: "echo b", Key: "B"},
+							{Command: "echo c-fresh", Key: "C"},
+						},
+					}},
+				},
+				{
+					// Doesn't match -> would-be placeholder sharing key "C" with the
+					// group above. "C" was never part of the ambiguous A/B collision,
+					// so it must still be tracked and this placeholder dropped, not
+					// silently appended as a second, undetected "C".
+					Paths: []string{"still-unrelated/"},
+					Steps: []Step{{Key: "C", Command: "echo c-placeholder"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Key: "A", Command: "echo a", Skip: skipNoChangesMessage},
+				{Key: "B", Command: "echo b", Skip: skipNoChangesMessage},
+				{
+					Group: "Multi",
+					Key:   "A",
+					Steps: []Step{
+						{Command: "echo b", Key: "B"},
+						{Command: "echo c-fresh", Key: "C"},
+					},
+				},
+			},
+		},
 	}
 
 	for name, tc := range testCases {

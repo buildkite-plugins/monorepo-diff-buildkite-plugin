@@ -678,6 +678,10 @@ The skip reason reflects why the step was excluded:
 - `Matched changes were excluded by skip_path` — a file matched `path`, but every match was also excluded by `skip_path`.
 - `Excluded by except_path` — the watch was excluded entirely via `except_path`.
 
+**Note on groups:** the plugin sets `skip:` on the group container itself in the generated YAML (as in the example above). Buildkite then applies that skip to every job nested inside the group, rather than treating the group as one single skipped unit — so an all-skipped group still renders as a visible group in the pipeline view, just with every job inside it shown as skipped, rather than the group disappearing.
+
+**Note on `notify`:** enabling `skip_on_no_changes` can cause a plugin-level `notify` to fire on builds where nothing actually matched. Without the flag, a build where no watch matches and there's no `default` step uploads nothing, so `notify` never fires. With the flag on, that same build now uploads a pipeline containing only `skip:` placeholders, which is enough content for the upload to proceed and `notify` to trigger. If you rely on `notify` (for example a Slack webhook) to only fire on real activity, keep this in mind before enabling the flag.
+
 ### `notify` (optional)
 
 Add `notify` to send notifications when a group step completes. Accepts the same notification types as Buildkite step-level notify.

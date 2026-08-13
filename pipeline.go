@@ -222,6 +222,21 @@ func logInvalidStep(step Step) {
 	log.Warnf("Skipping invalid step: %s. Steps must have at least one of: command, commands, trigger, or group with nested steps.", context)
 }
 
+// stepKeys returns every non-empty Key found in s, including keys on steps
+// nested inside a group. Key-collision detection needs the full set, not
+// just the top-level Key, since a keyless group container can still wrap a
+// nested step whose Key collides with another watch's output.
+func stepKeys(s Step) []string {
+	var keys []string
+	if s.Key != "" {
+		keys = append(keys, s.Key)
+	}
+	for _, nested := range s.Steps {
+		keys = append(keys, stepKeys(nested)...)
+	}
+	return keys
+}
+
 func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) ([]Step, error) {
 	steps := []Step{}
 	var defaultSteps []Step
@@ -232,37 +247,97 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 	// output as conflicting duplicate keys.
 	keyIndex := map[string]int{}
 
-	appendStep := func(s Step) {
-		if s.Key != "" {
-			if i, ok := keyIndex[s.Key]; ok {
-				existing := steps[i]
-				switch {
-				case existing.Skip != nil && s.Skip == nil:
-					// A real match supersedes an earlier skip placeholder for the same key.
-					steps[i] = s
-					return
-				case existing.Skip == nil && s.Skip != nil:
-					// This key already has a real match; drop the redundant placeholder.
-					return
-				case existing.Skip != nil && s.Skip != nil:
-					// Both are placeholders; the more specific reason wins.
-					existingReason, _ := existing.Skip.(string)
-					newReason, _ := s.Skip.(string)
-					if skipReasonPriority[newReason] > skipReasonPriority[existingReason] {
-						steps[i] = s
-					}
-					return
-				}
-				// Both are real matches with different content sharing a key — a
-				// genuine misconfiguration; keep both and let Buildkite's own
-				// pipeline-upload validation surface the duplicate key, same as
-				// it always has for any other duplicate-key mistake.
+	// registerKeys unconditionally points every key in s at index idx,
+	// overwriting any prior owner. Safe when every key in s either has no
+	// prior owner or the one prior owner it does have is exactly the entry
+	// being resolved.
+	registerKeys := func(s Step, idx int) {
+		for _, k := range stepKeys(s) {
+			keyIndex[k] = idx
+		}
+	}
+
+	// registerNewKeys points only s's not-yet-owned keys at index idx,
+	// leaving any already-owned key's mapping untouched. Used when s's keys
+	// span more than one distinct existing owner, so we can't safely decide
+	// which owner a shared key should now point to.
+	registerNewKeys := func(s Step, idx int) {
+		for _, k := range stepKeys(s) {
+			if _, owned := keyIndex[k]; !owned {
+				keyIndex[k] = idx
 			}
 		}
-		steps = append(steps, s)
-		if s.Key != "" {
-			keyIndex[s.Key] = len(steps) - 1
+	}
+
+	replaceStep := func(i int, s Step) {
+		for _, k := range stepKeys(steps[i]) {
+			delete(keyIndex, k)
 		}
+		steps[i] = s
+		registerKeys(s, i)
+	}
+
+	appendStep := func(s Step) {
+		keys := stepKeys(s)
+
+		// A step can only cleanly resolve a collision against a single prior
+		// owner. Find every distinct existing index any of s's keys already
+		// point to — s.Key and a nested step's Key can collide with two
+		// different watches' output, not just one.
+		collidingIndices := map[int]bool{}
+		for _, k := range keys {
+			if i, ok := keyIndex[k]; ok {
+				collidingIndices[i] = true
+			}
+		}
+
+		if len(collidingIndices) == 1 {
+			var i int
+			for idx := range collidingIndices {
+				i = idx
+			}
+			existing := steps[i]
+			switch {
+			case existing.Skip != nil && s.Skip == nil:
+				// A real match supersedes an earlier skip placeholder sharing a key.
+				replaceStep(i, s)
+				return
+			case existing.Skip == nil && s.Skip != nil:
+				// This key already has a real match; drop the redundant placeholder.
+				return
+			case existing.Skip != nil && s.Skip != nil:
+				// Both are placeholders; the more specific reason wins.
+				existingReason, _ := existing.Skip.(string)
+				newReason, _ := s.Skip.(string)
+				if skipReasonPriority[newReason] > skipReasonPriority[existingReason] {
+					replaceStep(i, s)
+				}
+				return
+			}
+			// Both are real matches with different content sharing a key — a
+			// genuine misconfiguration; keep both and let Buildkite's own
+			// pipeline-upload validation surface the duplicate key, same as
+			// it always has for any other duplicate-key mistake.
+			steps = append(steps, s)
+			registerKeys(s, len(steps)-1)
+			return
+		}
+
+		if len(collidingIndices) > 1 {
+			// s's keys reach into more than one distinct existing step. Picking
+			// which prior owner to reassign is inherently ambiguous, and doing
+			// so would silently steal a key from an unrelated step that's still
+			// sitting in steps untouched. Leave every already-owned key's mapping
+			// alone — only register s's genuinely new keys — and let Buildkite's
+			// own duplicate-key validation surface the conflict, same as any
+			// other genuine misconfiguration.
+			steps = append(steps, s)
+			registerNewKeys(s, len(steps)-1)
+			return
+		}
+
+		steps = append(steps, s)
+		registerKeys(s, len(steps)-1)
 	}
 
 	appendSkipPlaceholder := func(step Step, reason string) {
@@ -344,7 +419,7 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 			}
 		}
 
-		if matched {
+		if matched && len(w.Steps) > 0 {
 			anyMatched = true
 		} else if skipOnNoChanges && len(w.Paths) > 0 {
 			reason := skipNoChangesMessage
@@ -358,7 +433,9 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 	}
 
 	if !anyMatched && defaultSteps != nil {
-		steps = append(steps, defaultSteps...)
+		for _, s := range defaultSteps {
+			appendStep(s)
+		}
 	}
 
 	deduped := dedupSteps(steps)

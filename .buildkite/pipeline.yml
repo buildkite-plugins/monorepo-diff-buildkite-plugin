@@ -133,6 +133,27 @@ steps:
           hooks:
             - command: echo "command hook 1"
 
+  - label: ":white_check_mark: Testing skip_on_no_changes depends_on resolution"
+    plugins:
+      - artifacts#v1.9.4:
+          download:
+            - "monorepo-diff-buildkite-plugin"
+      - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
+          diff: "cat ./e2e/one-match-one-miss"
+          log_level: "debug"
+          skip_on_no_changes: true
+          watch:
+            - path: "hello-service/"
+              config:
+                group: "Unmatched Group"
+                key: "group:unmatched"
+                steps:
+                  - command: "echo this-should-not-run"
+            - path: "foo-service/"
+              config:
+                command: "echo depends_on resolved against a skipped step"
+                depends_on: "group:unmatched"
+
   - label: ":bomb: Testing wait"
     plugins:
       - artifacts#v1.9.4:
