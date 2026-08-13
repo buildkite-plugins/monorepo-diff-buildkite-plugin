@@ -644,6 +644,44 @@ steps:
                     label: "Deploy Bar"
 ```
 
+### `skip_on_no_changes` (optional)
+
+By default, when a watch's `path` doesn't match any changed file, its step is omitted from the generated pipeline entirely. This can break a `depends_on` reference: if a downstream step depends on a step that was omitted, the reference never resolves and the build stalls or fails waiting on a step that was never created. The same applies when a watch is excluded via `except_path`, or every matching file is excluded via `skip_path`.
+
+Set `skip_on_no_changes: true` at the plugin level to keep those steps in the pipeline instead of omitting them. Unmatched steps are still emitted, but marked with a `skip` reason instead. A skipped step in Buildkite counts as completed, so any `depends_on` reference to it still resolves.
+
+```yaml
+steps:
+  - label: "Triggering pipelines"
+    plugins:
+      - monorepo-diff#v1.11.1:
+          diff: "git diff --name-only HEAD~1"
+          skip_on_no_changes: true
+          watch:
+            - path: "services/"
+              config:
+                group: "CI/CD Infrastructure"
+                key: "group:cicd"
+                steps:
+                  - command: "echo deploy"
+            - path: "app/"
+              config:
+                command: "echo build-app"
+                depends_on: "group:cicd"
+```
+
+If `services/` doesn't match any changed file, `CI/CD Infrastructure` is still emitted with `skip: "No changes detected"` instead of vanishing, and `build-app`'s `depends_on: "group:cicd"` resolves correctly.
+
+The skip reason reflects why the step was excluded:
+
+- `No changes detected` — the watch's `path` didn't match any changed file.
+- `Matched changes were excluded by skip_path` — a file matched `path`, but every match was also excluded by `skip_path`.
+- `Excluded by except_path` — the watch was excluded entirely via `except_path`.
+
+**Note on groups:** the plugin sets `skip:` on the group container itself in the generated YAML (as in the example above). Buildkite then applies that skip to every job nested inside the group, rather than treating the group as one single skipped unit — so an all-skipped group still renders as a visible group in the pipeline view, just with every job inside it shown as skipped, rather than the group disappearing.
+
+**Note on `notify`:** enabling `skip_on_no_changes` can cause a plugin-level `notify` to fire on builds where nothing actually matched. Without the flag, a build where no watch matches and there's no `default` step uploads nothing, so `notify` never fires. With the flag on, that same build now uploads a pipeline containing only `skip:` placeholders, which is enough content for the upload to proceed and `notify` to trigger. If you rely on `notify` (for example a Slack webhook) to only fire on real activity, keep this in mind before enabling the flag.
+
 ### `notify` (optional)
 
 Add `notify` to send notifications when a group step completes. Accepts the same notification types as Buildkite step-level notify.
