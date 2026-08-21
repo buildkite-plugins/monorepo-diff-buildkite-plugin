@@ -9,8 +9,8 @@ require (
 	github.com/buildkite/bintest/v3 v3.3.0
 	github.com/dlclark/regexp2 v1.12.0
 	github.com/google/go-cmp v0.7.0
-	github.com/sirupsen/logrus v1.9.4
-	github.com/stretchr/testify v1.11.1
+	github.com/sirupsen/logrus v1.10.1
+	github.com/stretchr/testify v1.12.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
