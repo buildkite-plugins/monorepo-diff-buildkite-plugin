@@ -6,9 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v1.11.2](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.11.1...v1.11.2) (2026-08-24)
+
+### Fixed
+* Include plugins in `hasAction()` so plugin-only steps are not skipped [#173](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/173) ([Tolsee](https://github.com/Tolsee))
+
+## [v1.11.1](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.11.0...v1.11.1) (2026-08-10)
+
 ### Added
-* Support `matrix` step attribute as a pass-through to the generated pipeline YAML
-* Allow `config` to be a list of step configs, each becoming an independent generated step
+* Support `matrix` step attribute as a pass-through to the generated pipeline YAML [#195](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/195) ([Damilola-obasa](https://github.com/Damilola-obasa))
+* Allow `config` to be a list of step configs, each becoming an independent generated step [#195](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/195) ([Damilola-obasa](https://github.com/Damilola-obasa))
+
+### Changed
+* Update actions/setup-go action to v7 [#193](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/193) ([renovate[bot]](https://github.com/apps/renovate))
+* Update buildkite plugin docker to v5.14.0 [#191](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/191) ([renovate[bot]](https://github.com/apps/renovate))
+* Update actions/checkout action to v7 [#183](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/183) ([renovate[bot]](https://github.com/apps/renovate))
+* Update go toolchain directive to v1.26.5 [#190](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/190) ([renovate[bot]](https://github.com/apps/renovate))
 
 ## [v1.11.0](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.10.0...v1.11.0) (2026-07-03)
 
