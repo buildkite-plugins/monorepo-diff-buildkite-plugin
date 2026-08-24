@@ -4,6 +4,12 @@ env:
 steps:
   - block: "Allow this build to run?"
     key: allow_build
+    prompt: "Review the PR for concerning changes before unblocking"
+    allowed_teams:
+      - "support"
+      - "deploy"
+      - "pipelines"
+    blocked_state: running
 
   - wait: ~
 
