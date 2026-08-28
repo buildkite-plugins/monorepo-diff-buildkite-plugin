@@ -4,6 +4,12 @@ env:
 steps:
   - block: "Allow this build to run?"
     key: allow_build
+    prompt: "Review the PR for concerning changes before unblocking"
+    allowed_teams:
+      - "support"
+      - "deploy"
+      - "pipelines"
+    blocked_state: running
 
   - wait: ~
 
@@ -50,7 +56,7 @@ steps:
     key: security_scan
     depends_on: allow_build
     plugins:
-      - secrets#v2.4.0:
+      - secrets#v2.5.0:
           variables:
             GITHUB_TOKEN: GITHUB_TOKEN
       - ossf-scorecard#v1.0.1:
@@ -247,7 +253,7 @@ steps:
     env:
       AWS_REGION: us-east-1
     plugins:
-      - aws-assume-role-with-web-identity#v1.6.0:
+      - aws-assume-role-with-web-identity#v1.7.0:
           role-arn: arn:aws:iam::445615400570:role/pipeline-buildkite-monorail-plugin-monorepo
           session-tags:
             - organization_slug
