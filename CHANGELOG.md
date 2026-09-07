@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+* Add `skip_on_no_changes` to emit unmatched steps with a `skip` reason instead of omitting them, so `depends_on` references to them still resolve [#192](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/192) ([Megh03](https://github.com/Megh03))
+
 ## [v1.11.2](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.11.1...v1.11.2) (2026-08-24)
 
 ### Fixed

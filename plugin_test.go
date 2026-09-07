@@ -901,6 +901,85 @@ func TestPluginShouldPreserveStepCondition(t *testing.T) {
 	}
 }
 
+func TestPluginShouldParseSkipOnNoChanges(t *testing.T) {
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"skip_on_no_changes": true,
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo deploy"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:            "git diff --name-only HEAD~1",
+		Wait:            false,
+		LogLevel:        "info",
+		Interpolation:   true,
+		SkipOnNoChanges: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Steps: []Step{{
+					Command: "echo deploy",
+				}},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestPluginShouldIgnoreCustomerProvidedSkip(t *testing.T) {
+	// Skip is set internally by skip_on_no_changes, not by customer config —
+	// a "skip" key in a step's own config must be silently ignored, not parsed.
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [
+				{
+					"path": "service/**/*",
+					"config": {
+						"command": "echo deploy",
+						"skip": "customer set this manually"
+					}
+				}
+			]
+		}
+	}]`
+
+	got, err := initializePlugin(param)
+	assert.NoError(t, err)
+
+	expected := Plugin{
+		Diff:          "git diff --name-only HEAD~1",
+		Wait:          false,
+		LogLevel:      "info",
+		Interpolation: true,
+		Watch: []WatchConfig{
+			{
+				Paths: []string{"service/**/*"},
+				Steps: []Step{{
+					Command: "echo deploy",
+				}},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(expected, got); diff != "" {
+		t.Fatalf("plugin diff (-want +got):\n%s", diff)
+	}
+}
+
 func TestPluginShouldClearRawEnvFromNestedSteps(t *testing.T) {
 	param := `[{
 		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
@@ -1911,7 +1990,7 @@ func TestPluginConfigArrayProducesMultipleSteps(t *testing.T) {
 
 	// stepsToTrigger / pipeline generation should produce both as separate
 	// top-level steps, not nested under a group, when the path matches.
-	steps, err := stepsToTrigger([]string{"services/main.go"}, got.Watch)
+	steps, err := stepsToTrigger([]string{"services/main.go"}, got.Watch, false)
 	assert.NoError(t, err)
 	assert.Len(t, steps, 2)
 	assert.Equal(t, "", steps[0].Group)
