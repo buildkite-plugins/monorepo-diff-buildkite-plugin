@@ -216,10 +216,10 @@ func logInvalidStep(step Step) {
 			context = fmt.Sprintf("group '%s' has invalid nested steps", step.Group)
 		}
 	} else if step.Label != "" {
-		context = fmt.Sprintf("step with label '%s' has no command, trigger, or group", step.Label)
+		context = fmt.Sprintf("step with label '%s' has no command, trigger, plugins, or group", step.Label)
 	}
 
-	log.Warnf("Skipping invalid step: %s. Steps must have at least one of: command, commands, trigger, or group with nested steps.", context)
+	log.Warnf("Skipping invalid step: %s. Steps must have at least one of: command, commands, trigger, plugins, or group with nested steps.", context)
 }
 
 // stepKeys returns every non-empty Key found in s, including keys on steps
