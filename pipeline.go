@@ -378,7 +378,6 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 		matched := false
 		excludedBySkipPath := false
 
-	pathsLoop:
 		for _, p := range w.Paths {
 			for _, f := range files {
 				match, err := matchPath(p, f, w.RegexPaths)
@@ -405,7 +404,7 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 						appendStep(s)
 					}
 					matched = true
-					break pathsLoop
+					break
 				}
 
 				if match && skip {

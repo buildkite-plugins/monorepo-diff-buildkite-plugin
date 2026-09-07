@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -1204,6 +1206,127 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 	}
 }
 
+// TestSkipOnNoChangesInvariants asserts properties that must hold for every
+// config, rather than for hand-picked cases. Enabling skip_on_no_changes must
+// not introduce a duplicate key (Buildkite rejects the upload), must not drop a
+// key that resolved with the flag off (that would break the depends_on the flag
+// exists to keep resolvable), must not change which real steps run, and must
+// only ever apply a known skip reason.
+func TestSkipOnNoChangesInvariants(t *testing.T) {
+	allKeys := func(steps []Step) []string {
+		var out []string
+		for _, s := range steps {
+			out = append(out, stepKeys(s)...)
+		}
+		return out
+	}
+	realSteps := func(steps []Step) []string {
+		var out []string
+		for _, s := range steps {
+			if s.Skip == nil {
+				out = append(out, fmt.Sprintf("%v|%v|%v|%v|%v", s.Command, s.Commands, s.Trigger, s.Group, stepKeys(s)))
+			}
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	type testCase struct {
+		files []string
+		watch []WatchConfig
+	}
+	var cases []testCase
+
+	// single-watch combinations
+	for _, paths := range [][]string{{"a/"}, {"a/", "b/"}, {"a/*.go"}, {"a/", "a/sub/"}, {}} {
+		for _, steps := range [][]Step{
+			{{Command: "c"}},
+			{{Command: "c", Key: "k"}},
+			{{Trigger: "t", Key: "k"}},
+			{{Group: "g", Key: "gk", Steps: []Step{{Command: "c", Key: "nk"}}}},
+			{{Group: "g", Steps: []Step{{Command: "c", Key: "nk"}}}},
+			{},
+		} {
+			for _, files := range [][]string{{"a/main.go"}, {"b/main.go"}, {"a/sub/x.go"}, {}} {
+				for _, extra := range []WatchConfig{{}, {SkipPaths: []string{"a/main.go"}}, {ExceptPaths: []string{"a/main.go"}}} {
+					w := WatchConfig{Paths: paths, SkipPaths: extra.SkipPaths, ExceptPaths: extra.ExceptPaths, Steps: steps}
+					cases = append(cases, testCase{files, []WatchConfig{w}})
+					cases = append(cases, testCase{files, []WatchConfig{w, {Default: true, Steps: []Step{{Command: "fallback", Key: "k"}}}}})
+				}
+			}
+		}
+	}
+
+	// multi-watch configs where one step's keys span two other steps, which is
+	// the shape that cannot be resolved against a single prior owner.
+	spanning := []testCase{
+		{[]string{"a/x.txt", "b/y.go"}, []WatchConfig{
+			{Paths: []string{"a/"}, Steps: []Step{{Command: "c1", Key: "A"}}},
+			{Paths: []string{"b/"}, Steps: []Step{{Command: "c2", Key: "B"}}},
+			{Paths: []string{"z/"}, Steps: []Step{{Group: "g", Key: "A", Steps: []Step{{Command: "c3", Key: "B"}}}}},
+		}},
+		{[]string{"a/x.txt"}, []WatchConfig{
+			{Paths: []string{"p/"}, Steps: []Step{{Command: "c1", Key: "A"}}},
+			{Paths: []string{"q/"}, Steps: []Step{{Command: "c2", Key: "B"}}},
+			{Paths: []string{"a/"}, Steps: []Step{{Group: "g", Key: "A", Steps: []Step{{Command: "c3", Key: "B"}}}}},
+		}},
+		{[]string{"a/x.txt"}, []WatchConfig{
+			{Paths: []string{"p/"}, Steps: []Step{{Command: "c1", Key: "A"}}},
+			{Paths: []string{"q/"}, Steps: []Step{{Command: "c2", Key: "B"}}},
+			{Paths: []string{"a/"}, Steps: []Step{{Group: "g", Key: "A", Steps: []Step{{Command: "c3", Key: "B"}, {Command: "c4", Key: "C"}}}}},
+			{Paths: []string{"r/"}, Steps: []Step{{Command: "c5", Key: "C"}}},
+		}},
+		{[]string{"zz/x.go"}, []WatchConfig{
+			{Paths: []string{"p/"}, Steps: []Step{{Command: "c1", Key: "A"}}},
+			{Paths: []string{"q/"}, Steps: []Step{{Command: "c2", Key: "B"}}},
+			{Paths: []string{"s/"}, Steps: []Step{{Group: "g", Key: "A", Steps: []Step{{Command: "c3", Key: "B"}}}}},
+		}},
+	}
+	cases = append(cases, spanning...)
+
+	validReasons := map[string]bool{
+		skipNoChangesMessage:    true,
+		skipPathExcludedMessage: true,
+		skipExceptPathMessage:   true,
+	}
+
+	for i, c := range cases {
+		off, errOff := stepsToTrigger(c.files, c.watch, false)
+		on, errOn := stepsToTrigger(c.files, c.watch, true)
+		require.Equal(t, errOff == nil, errOn == nil, "case %d: the flag must not change whether an error is returned", i)
+		if errOff != nil {
+			continue
+		}
+
+		onCount := map[string]int{}
+		for _, k := range allKeys(on) {
+			onCount[k]++
+		}
+		offCount := map[string]int{}
+		for _, k := range allKeys(off) {
+			offCount[k]++
+		}
+
+		for k, n := range onCount {
+			// Two real matches sharing a key is a pre-existing misconfiguration
+			// that the flag-off path emits identically, so only a *new* duplicate
+			// is a defect here.
+			assert.False(t, n > 1 && n > offCount[k], "case %d: flag introduced duplicate key %q (on=%d off=%d)", i, k, n, offCount[k])
+		}
+		for k := range offCount {
+			assert.NotZero(t, onCount[k], "case %d: key %q resolved with the flag off but is missing with it on", i, k)
+		}
+		assert.Equal(t, realSteps(off), realSteps(on), "case %d: the flag changed which real steps run", i)
+
+		for _, s := range on {
+			if s.Skip != nil {
+				reason, ok := s.Skip.(string)
+				assert.True(t, ok && validReasons[reason], "case %d: unknown skip reason %v", i, s.Skip)
+			}
+		}
+	}
+}
+
 func TestRegexPaths(t *testing.T) {
 	testCases := map[string]struct {
 		ChangedFiles []string
@@ -1284,6 +1407,23 @@ func TestRegexPaths(t *testing.T) {
 				},
 			},
 			Expected: []Step{},
+		},
+		"malformed regex in a later path still errors when an earlier path already matched": {
+			// Matching stops scanning files for the current path, but every path in
+			// the watch is still compiled, so a typo in a later pattern surfaces on
+			// every build rather than depending on path order and which files the
+			// commit happened to touch.
+			ChangedFiles: []string{
+				"src/main.go",
+			},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths:      []string{`src/.*\.go`, "src/[invalid"},
+					RegexPaths: true,
+					Steps:      []Step{{Trigger: "service-1"}},
+				},
+			},
+			ExpectError: true,
 		},
 		"invalid regex returns error": {
 			ChangedFiles: []string{
