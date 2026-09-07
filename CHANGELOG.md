@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 * Support `matrix` step attribute as a pass-through to the generated pipeline YAML
 * Allow `config` to be a list of step configs, each becoming an independent generated step
+* Add `skip_on_no_changes` to emit unmatched steps with a `skip` reason instead of omitting them, so `depends_on` references to them still resolve [#192](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/pull/192) ([Megh03](https://github.com/Megh03))
 
 ## [v1.11.0](https://github.com/buildkite-plugins/monorepo-diff-buildkite-plugin/compare/v1.10.0...v1.11.0) (2026-07-03)
 

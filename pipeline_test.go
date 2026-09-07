@@ -126,7 +126,7 @@ func TestUploadPipelineUploadsSkipOnlyPipeline(t *testing.T) {
 		Watch: []WatchConfig{
 			{
 				Paths: []string{"unrelated/"},
-				Steps:  []Step{{Command: "echo should-not-run"}},
+				Steps: []Step{{Command: "echo should-not-run"}},
 			},
 		},
 	}
@@ -610,11 +610,11 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"services/"},
-					Steps:  []Step{{Trigger: "deploy-services"}},
+					Steps: []Step{{Trigger: "deploy-services"}},
 				},
 				{
 					Paths: []string{"app/"},
-					Steps:  []Step{{Trigger: "deploy-app"}},
+					Steps: []Step{{Trigger: "deploy-app"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -628,11 +628,11 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"services/"},
-					Steps:  []Step{{Trigger: "deploy-services"}},
+					Steps: []Step{{Trigger: "deploy-services"}},
 				},
 				{
 					Paths: []string{"app/"},
-					Steps:  []Step{{Trigger: "deploy-app"}},
+					Steps: []Step{{Trigger: "deploy-app"}},
 				},
 			},
 			SkipOnNoChanges: false,
@@ -645,7 +645,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"services/"},
-					Steps:  []Step{{Trigger: "deploy-services"}},
+					Steps: []Step{{Trigger: "deploy-services"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -659,7 +659,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				{
 					Paths:       []string{"**/*"},
 					ExceptPaths: []string{"main/other/**/*"},
-					Steps:        []Step{{Trigger: "service-1"}},
+					Steps:       []Step{{Trigger: "service-1"}},
 				},
 			},
 			SkipOnNoChanges: false,
@@ -671,7 +671,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				{
 					Paths:       []string{"**/*"},
 					ExceptPaths: []string{"main/other/**/*"},
-					Steps:        []Step{{Trigger: "service-1"}},
+					Steps:       []Step{{Trigger: "service-1"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -684,11 +684,11 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"app/"},
-					Steps:  []Step{{Trigger: "app-deploy"}},
+					Steps: []Step{{Trigger: "app-deploy"}},
 				},
 				{
 					Default: struct{}{},
-					Steps:    []Step{{Command: "buildkite-agent pipeline upload other_tests.yml"}},
+					Steps:   []Step{{Command: "buildkite-agent pipeline upload other_tests.yml"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -740,7 +740,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				{
 					Paths:     []string{"services/api/"},
 					SkipPaths: []string{"services/api/README.md"},
-					Steps:      []Step{{Trigger: "deploy-api"}},
+					Steps:     []Step{{Trigger: "deploy-api"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -753,7 +753,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					SkipPaths: []string{"vendor/"},
-					Steps:      []Step{{Command: "echo deploy-something"}},
+					Steps:     []Step{{Command: "echo deploy-something"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -793,11 +793,11 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"path-a/"},
-					Steps:  []Step{{Command: "echo a", Key: "dup"}},
+					Steps: []Step{{Command: "echo a", Key: "dup"}},
 				},
 				{
 					Paths: []string{"path-b/"},
-					Steps:  []Step{{Command: "echo b", Key: "dup"}},
+					Steps: []Step{{Command: "echo b", Key: "dup"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -811,12 +811,12 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"path-a/"},
-					Steps:  []Step{{Command: "echo a", Key: "dup"}},
+					Steps: []Step{{Command: "echo a", Key: "dup"}},
 				},
 				{
 					Paths:     []string{"path-b/"},
 					SkipPaths: []string{"path-b/README.md"},
-					Steps:      []Step{{Command: "echo b", Key: "dup"}},
+					Steps:     []Step{{Command: "echo b", Key: "dup"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -829,11 +829,11 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					Paths: []string{"app/"},
-					Steps:  []Step{{Key: "shared-key", Trigger: "placeholder-first"}},
+					Steps: []Step{{Key: "shared-key", Trigger: "placeholder-first"}},
 				},
 				{
 					Paths: []string{"services/"},
-					Steps:  []Step{{Key: "shared-key", Trigger: "real-match-second"}},
+					Steps: []Step{{Key: "shared-key", Trigger: "real-match-second"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -847,25 +847,25 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				{
 					// Doesn't match any changed file -> "no changes" placeholder.
 					Paths: []string{"unrelated/"},
-					Steps:  []Step{{Key: "shared-key", Trigger: "step-a"}},
+					Steps: []Step{{Key: "shared-key", Trigger: "step-a"}},
 				},
 				{
 					// Matches docs/generated/api.md, but that match is skip_path-excluded
 					// -> more specific placeholder, supersedes step-a's in place.
 					Paths:     []string{"docs/"},
 					SkipPaths: []string{"docs/generated/"},
-					Steps:      []Step{{Key: "shared-key", Trigger: "step-b"}},
+					Steps:     []Step{{Key: "shared-key", Trigger: "step-b"}},
 				},
 				{
 					// Real match -> supersedes step-b's placeholder in place.
 					Paths: []string{"services/"},
-					Steps:  []Step{{Key: "shared-key", Trigger: "step-c"}},
+					Steps: []Step{{Key: "shared-key", Trigger: "step-c"}},
 				},
 				{
 					// Doesn't match -> would-be placeholder, but a real match already
 					// holds this key, so it's dropped rather than overwriting step-c.
 					Paths: []string{"still-unrelated/"},
-					Steps:  []Step{{Key: "shared-key", Trigger: "step-d"}},
+					Steps: []Step{{Key: "shared-key", Trigger: "step-d"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -879,13 +879,13 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				{
 					// Doesn't match -> "no changes" placeholder, recorded first.
 					Paths: []string{"a/"},
-					Steps:  []Step{{Command: "echo a", Key: "dup"}},
+					Steps: []Step{{Command: "echo a", Key: "dup"}},
 				},
 				{
 					// Excepted -> more specific placeholder, recorded second.
 					Paths:       []string{"b/"},
 					ExceptPaths: []string{"b/config.yml"},
-					Steps:        []Step{{Command: "echo b", Key: "dup"}},
+					Steps:       []Step{{Command: "echo b", Key: "dup"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -900,12 +900,12 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 					// Excepted -> more specific placeholder, recorded first this time.
 					Paths:       []string{"b/"},
 					ExceptPaths: []string{"b/config.yml"},
-					Steps:        []Step{{Command: "echo b", Key: "dup"}},
+					Steps:       []Step{{Command: "echo b", Key: "dup"}},
 				},
 				{
 					// Doesn't match -> "no changes" placeholder, recorded second.
 					Paths: []string{"a/"},
-					Steps:  []Step{{Command: "echo a", Key: "dup"}},
+					Steps: []Step{{Command: "echo a", Key: "dup"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -919,12 +919,12 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				{
 					Paths:     []string{"a/"},
 					SkipPaths: []string{"a/README.md"},
-					Steps:      []Step{{Command: "echo a", Key: "dup"}},
+					Steps:     []Step{{Command: "echo a", Key: "dup"}},
 				},
 				{
 					Paths:       []string{"b/"},
 					ExceptPaths: []string{"b/config.yml"},
-					Steps:        []Step{{Command: "echo b", Key: "dup"}},
+					Steps:       []Step{{Command: "echo b", Key: "dup"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -937,7 +937,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			WatchConfigs: []WatchConfig{
 				{
 					ExceptPaths: []string{"generated/"},
-					Steps:        []Step{{Command: "echo deploy-something"}},
+					Steps:       []Step{{Command: "echo deploy-something"}},
 				},
 			},
 			SkipOnNoChanges: true,
@@ -1046,7 +1046,7 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				},
 			},
 		},
-		"a step whose keys collide with two different existing steps is left for Buildkite to reject, not silently merged into one": {
+		"a matched step whose keys collide with two different placeholders supersedes them all, rather than duplicating their keys": {
 			ChangedFiles: []string{"c/main.go"},
 			WatchConfigs: []WatchConfig{
 				{
@@ -1068,8 +1068,10 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			},
 			SkipOnNoChanges: true,
 			Expected: []Step{
-				{Key: "A", Command: "echo a", Skip: skipNoChangesMessage},
-				{Key: "B", Command: "echo b", Skip: skipNoChangesMessage},
+				// The matched group carries both "A" and "B", so it already
+				// provides every depends_on target the two placeholders would
+				// have. Keeping them as well would put both keys in the pipeline
+				// twice and Buildkite would reject the upload.
 				{
 					Group: "Multi",
 					Key:   "A",
@@ -1077,7 +1079,75 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 				},
 			},
 		},
-		"a genuinely new key carried by a multi-owner-colliding step is still tracked for later collisions": {
+		"an unmatched watch's placeholder is dropped rather than duplicating keys owned by two different matched steps": {
+			ChangedFiles: []string{"a/main.go", "b/main.go"},
+			WatchConfigs: []WatchConfig{
+				{
+					Paths: []string{"a/"},
+					Steps: []Step{{Key: "A", Command: "echo a"}},
+				},
+				{
+					Paths: []string{"b/"},
+					Steps: []Step{{Key: "B", Command: "echo b"}},
+				},
+				{
+					// Both of this watch's keys are already owned, by two different
+					// matched steps. Emitting the placeholder would duplicate "A" and
+					// "B", which Buildkite rejects at upload, and it adds no
+					// depends_on target that the two real steps don't already provide.
+					Paths: []string{"unmatched/"},
+					Steps: []Step{{
+						Group: "Multi",
+						Key:   "A",
+						Steps: []Step{{Command: "echo c", Key: "B"}},
+					}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Key: "A", Command: "echo a"},
+				{Key: "B", Command: "echo b"},
+			},
+		},
+		"a multi-owner-colliding placeholder doesn't steal the keys it collides with, so a later same-key placeholder still resolves against the right step": {
+			ChangedFiles: []string{"d/config.yml"},
+			WatchConfigs: []WatchConfig{
+				{
+					// Unmatched -> a "no changes" placeholder owning "A".
+					Paths: []string{"a/"},
+					Steps: []Step{{Command: "echo a", Key: "A"}},
+				},
+				{
+					// Unmatched -> a "no changes" placeholder owning "B".
+					Paths: []string{"b/"},
+					Steps: []Step{{Command: "echo b", Key: "B"}},
+				},
+				{
+					// Unmatched, and its keys reach into both placeholders above, so
+					// neither "A" nor "B" may be reassigned to it.
+					Paths: []string{"c/"},
+					Steps: []Step{{
+						Group: "Multi",
+						Key:   "A",
+						Steps: []Step{{Command: "echo c", Key: "B"}},
+					}},
+				},
+				{
+					// Excepted -> a more specific placeholder for "A". It can only
+					// outrank the first watch's "no changes" placeholder if "A" still
+					// points there rather than at the group above.
+					Paths:       []string{"d/"},
+					ExceptPaths: []string{"d/config.yml"},
+					Steps:       []Step{{Command: "echo d", Key: "A"}},
+				},
+			},
+			SkipOnNoChanges: true,
+			Expected: []Step{
+				{Command: "echo d", Key: "A", Skip: skipExceptPathMessage},
+				{Command: "echo b", Key: "B", Skip: skipNoChangesMessage},
+			},
+		},
+		"a later placeholder sharing a fresh key with a multi-owner-colliding step doesn't produce a second copy of that key": {
 			ChangedFiles: []string{"c/main.go"},
 			WatchConfigs: []WatchConfig{
 				{
@@ -1110,8 +1180,9 @@ func TestStepsToTriggerSkipOnNoChanges(t *testing.T) {
 			},
 			SkipOnNoChanges: true,
 			Expected: []Step{
-				{Key: "A", Command: "echo a", Skip: skipNoChangesMessage},
-				{Key: "B", Command: "echo b", Skip: skipNoChangesMessage},
+				// "C" survives on the matched group, so a depends_on pointing at
+				// it still resolves. The "A" and "B" placeholders are dropped
+				// because the same group already carries those keys.
 				{
 					Group: "Multi",
 					Key:   "A",

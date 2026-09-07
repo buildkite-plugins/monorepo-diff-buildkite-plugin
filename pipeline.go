@@ -323,21 +323,16 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 			return
 		}
 
-		if len(collidingIndices) > 1 {
-			// s's keys reach into more than one distinct existing step. Picking
-			// which prior owner to reassign is inherently ambiguous, and doing
-			// so would silently steal a key from an unrelated step that's still
-			// sitting in steps untouched. Leave every already-owned key's mapping
-			// alone — only register s's genuinely new keys — and let Buildkite's
-			// own duplicate-key validation surface the conflict, same as any
-			// other genuine misconfiguration.
-			steps = append(steps, s)
-			registerNewKeys(s, len(steps)-1)
-			return
-		}
-
+		// Either s has no colliding key at all, or its keys reach into more than
+		// one distinct existing step. In the second case picking which prior
+		// owner to reassign is inherently ambiguous, and doing so would silently
+		// steal a key from an unrelated step still sitting in steps untouched, so
+		// every already-owned key keeps its existing mapping and only s's
+		// genuinely new keys are registered. Any placeholder left redundant by
+		// that is cleaned up by dropRedundantPlaceholders once the whole output
+		// is known.
 		steps = append(steps, s)
-		registerKeys(s, len(steps)-1)
+		registerNewKeys(s, len(steps)-1)
 	}
 
 	appendSkipPlaceholder := func(step Step, reason string) {
@@ -438,6 +433,8 @@ func stepsToTrigger(files []string, watch []WatchConfig, skipOnNoChanges bool) (
 		}
 	}
 
+	steps = dropRedundantPlaceholders(steps)
+
 	deduped := dedupSteps(steps)
 	valid, invalid := filterValidSteps(deduped)
 
@@ -483,6 +480,65 @@ func matchPath(p string, f string, useRegex bool) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+// dropRedundantPlaceholders removes any keyed skip placeholder that shares a
+// key with another step in the output. A placeholder exists only to keep a
+// depends_on reference resolvable, so once another step already carries that
+// key the placeholder contributes no new target — and emitting it would put the
+// same key in the pipeline twice, which Buildkite rejects at upload, failing the
+// build before it starts.
+//
+// appendStep resolves a collision against a single prior owner as it builds the
+// output, and drops the placeholder there for exactly this reason. A step whose
+// keys reach into two different prior owners can't be resolved that way without
+// stealing a key from an unrelated step, so those are cleaned up here instead,
+// once the whole output is known.
+//
+// Real steps are always kept. Two real matches sharing a key is a genuine
+// misconfiguration rather than something this flag introduced, and Buildkite's
+// own duplicate-key validation surfaces it, same as it always has.
+//
+// A dropped placeholder takes any nested key it carried with it, even one no
+// other step owns. That matches what appendStep already does when a placeholder
+// collides with a single prior owner, and the alternative — stripping just the
+// colliding keys off a copy of the step — would rewrite config the user wrote
+// to mean something else.
+func dropRedundantPlaceholders(steps []Step) []Step {
+	claimed := map[string]bool{}
+	for _, s := range steps {
+		if s.Skip == nil {
+			for _, k := range stepKeys(s) {
+				claimed[k] = true
+			}
+		}
+	}
+
+	kept := make([]Step, 0, len(steps))
+	for _, s := range steps {
+		if s.Skip != nil {
+			keys := stepKeys(s)
+
+			// A keyless placeholder can't duplicate anything, so it always stays.
+			redundant := false
+			for _, k := range keys {
+				if claimed[k] {
+					redundant = true
+					break
+				}
+			}
+			if redundant {
+				continue
+			}
+
+			for _, k := range keys {
+				claimed[k] = true
+			}
+		}
+		kept = append(kept, s)
+	}
+
+	return kept
 }
 
 func dedupSteps(steps []Step) []Step {
