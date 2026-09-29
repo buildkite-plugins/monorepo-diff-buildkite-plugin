@@ -56,7 +56,7 @@ steps:
     key: security_scan
     depends_on: allow_build
     plugins:
-      - secrets#v2.5.0:
+      - secrets#v2.6.0:
           variables:
             GITHUB_TOKEN: GITHUB_TOKEN
       - ossf-scorecard#v1.1.0:
