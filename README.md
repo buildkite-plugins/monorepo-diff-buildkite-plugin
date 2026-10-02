@@ -172,6 +172,23 @@ A step's `config` can include a [build matrix](https://buildkite.com/docs/pipeli
         os: ["linux", "windows"]
 ```
 
+#### `agents`
+
+A step's [`agents`](https://buildkite.com/docs/agent/cli/reference/start#agent-targeting) query rules are passed through to the generated pipeline step in either the map or the array form.
+
+```yaml
+- path: services/api/
+  config:
+    command: "test.sh"
+    agents:
+      queue: "k8s"
+- path: services/web/
+  config:
+    command: "test.sh"
+    agents:
+      - "queue=k8s"
+```
+
 #### Plugins in Step Configurations
 
 The plugin preserves `plugins:` blocks when specified in command step configurations. This allows you to use Buildkite plugins within your monorepo-watched steps.

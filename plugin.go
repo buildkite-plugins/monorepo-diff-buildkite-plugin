@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -146,7 +147,8 @@ func (s Step) hasValidNesting() bool {
 }
 
 // UnmarshalJSON handles both "artifacts" and "artifact_paths" field names for backward compatibility
-// Both fields are supported by the Buildkite API; "artifact_paths" is preferred per documentation
+// Both fields are supported by the Buildkite API; "artifact_paths" is preferred per documentation.
+// It also decodes "agents" with numbers preserved as written.
 func (step *Step) UnmarshalJSON(data []byte) error {
 	// Check which fields are present without full unmarshaling
 	var fieldCheck map[string]json.RawMessage
@@ -168,6 +170,17 @@ func (step *Step) UnmarshalJSON(data []byte) error {
 	// Unmarshal the main struct (this will populate artifact_paths if present)
 	if err := json.Unmarshal(data, (*stepAlias)(step)); err != nil {
 		return err
+	}
+
+	// Agents pass through verbatim, but default JSON decoding turns numbers into
+	// float64, which YAML emits in exponent form (123456789012 -> 1.23456789012e+11)
+	// and so no longer matches the agent tag. Keep numbers as their literal text.
+	if raw, ok := fieldCheck["agents"]; ok {
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.UseNumber()
+		if err := dec.Decode(&step.Agents); err != nil {
+			return err
+		}
 	}
 
 	// If only "artifacts" was specified, manually extract and use it

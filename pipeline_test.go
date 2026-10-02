@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -2546,6 +2547,7 @@ func TestGeneratePipelineWithAgentsFormats(t *testing.T) {
 	// The "agents" step attribute is a pure pass-through: both the array form
 	// and the map form (including non-string values) must survive config
 	// parsing and be emitted unchanged, including on steps nested in a group.
+	// Large numbers must keep their literal form rather than an exponent.
 	param := `[{
 		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
 			"watch": [{
@@ -2554,7 +2556,7 @@ func TestGeneratePipelineWithAgentsFormats(t *testing.T) {
 					"group": "Foo",
 					"steps": [
 						{ "command": "echo array", "agents": ["queue=k8s", "os=linux"] },
-						{ "command": "echo map", "agents": { "queue": "k8s", "docker": true } }
+						{ "command": "echo map", "agents": { "queue": "k8s", "docker": true, "account": 123456789012 } }
 					]
 				}
 			}]
@@ -2567,7 +2569,7 @@ func TestGeneratePipelineWithAgentsFormats(t *testing.T) {
 	nested := plugin.Watch[0].Steps[0].Steps
 	require.Len(t, nested, 2)
 	assert.Equal(t, []interface{}{"queue=k8s", "os=linux"}, nested[0].Agents)
-	assert.Equal(t, map[string]interface{}{"queue": "k8s", "docker": true}, nested[1].Agents)
+	assert.Equal(t, map[string]interface{}{"queue": "k8s", "docker": true, "account": json.Number("123456789012")}, nested[1].Agents)
 
 	pipeline, _, err := generatePipeline(plugin.Watch[0].Steps, Plugin{})
 	require.NoError(t, err)
@@ -2586,6 +2588,7 @@ func TestGeneratePipelineWithAgentsFormats(t *testing.T) {
 	assert.Contains(t, string(got), "- os=linux")
 	assert.Contains(t, string(got), "queue: k8s")
 	assert.Contains(t, string(got), "docker: true")
+	assert.Contains(t, string(got), `account: "123456789012"`)
 
 	validatePipelineWithAgent(t, pipeline.Name())
 }
