@@ -2541,3 +2541,51 @@ func TestGeneratePipelineWithRetry(t *testing.T) {
 
 	validatePipelineWithAgent(t, pipeline.Name())
 }
+
+func TestGeneratePipelineWithAgentsFormats(t *testing.T) {
+	// The "agents" step attribute is a pure pass-through: both the array form
+	// and the map form (including non-string values) must survive config
+	// parsing and be emitted unchanged, including on steps nested in a group.
+	param := `[{
+		"github.com/buildkite-plugins/monorepo-diff-buildkite-plugin#commit": {
+			"watch": [{
+				"path": "src/foo",
+				"config": {
+					"group": "Foo",
+					"steps": [
+						{ "command": "echo array", "agents": ["queue=k8s", "os=linux"] },
+						{ "command": "echo map", "agents": { "queue": "k8s", "docker": true } }
+					]
+				}
+			}]
+		}
+	}]`
+
+	plugin, err := initializePlugin(param)
+	require.NoError(t, err)
+	require.Len(t, plugin.Watch[0].Steps, 1)
+	nested := plugin.Watch[0].Steps[0].Steps
+	require.Len(t, nested, 2)
+	assert.Equal(t, []interface{}{"queue=k8s", "os=linux"}, nested[0].Agents)
+	assert.Equal(t, map[string]interface{}{"queue": "k8s", "docker": true}, nested[1].Agents)
+
+	pipeline, _, err := generatePipeline(plugin.Watch[0].Steps, Plugin{})
+	require.NoError(t, err)
+	defer func() {
+		if err = os.Remove(pipeline.Name()); err != nil {
+			t.Logf("Failed to remove temporary pipeline file: %v", err)
+		}
+	}()
+
+	got, err := os.ReadFile(pipeline.Name())
+	require.NoError(t, err)
+
+	t.Log("Generated pipeline:\n" + string(got))
+
+	assert.Contains(t, string(got), "- queue=k8s")
+	assert.Contains(t, string(got), "- os=linux")
+	assert.Contains(t, string(got), "queue: k8s")
+	assert.Contains(t, string(got), "docker: true")
+
+	validatePipelineWithAgent(t, pipeline.Name())
+}

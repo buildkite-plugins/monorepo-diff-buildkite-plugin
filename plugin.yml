@@ -119,12 +119,16 @@ configuration:
                     Environment variables. Array: ["KEY=value", "KEY"] or Map: {KEY: "value", KEY2: ~}
                     Array: KEY-only reads from OS. Map: use "KEY: ~" (null literal) to read from OS, "KEY: ''" for empty string.
             agents:
-              type: object
+              type: [array, object]
+              description: >
+                Agent query rules. Array: ["queue=k8s"] or Map: {queue: k8s}
+              items:
+                type: string
               properties:
                 queue:
                   type: string
               additionalProperties:
-                type: string
+                type: [string, boolean, number]
             artifacts:
               type: array
               description: Artifact paths to upload (alternative field name)

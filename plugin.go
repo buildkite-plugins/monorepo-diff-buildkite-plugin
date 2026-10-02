@@ -93,7 +93,7 @@ type Step struct {
 	Build         Build                    `yaml:"build,omitempty"`
 	Command       interface{}              `yaml:"command,omitempty"`
 	Commands      interface{}              `yaml:"commands,omitempty"`
-	Agents        Agent                    `yaml:"agents,omitempty"`
+	Agents        interface{}              `yaml:"agents,omitempty"`
 	ArtifactPaths []string                 `json:"artifact_paths" yaml:"artifact_paths,omitempty"`
 	RawEnv        interface{}              `json:"env" yaml:",omitempty"`
 	Plugins       []map[string]interface{} `json:"plugins,omitempty" yaml:"plugins,omitempty"`
@@ -183,9 +183,6 @@ func (step *Step) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
-
-// Agent is Buildkite agent definition
-type Agent map[string]string
 
 // Build is buildkite build definition
 type Build struct {
