@@ -291,7 +291,7 @@ func TestPluginShouldUnmarshallCorrectly(t *testing.T) {
 						},
 					},
 					Async:         true,
-					Agents:        map[string]string{"queue": "queue-1", "database": "postgres"},
+					Agents:        map[string]interface{}{"queue": "queue-1", "database": "postgres"},
 					ArtifactPaths: []string{"artifact-1"},
 					SoftFail: []interface{}{map[string]interface{}{
 						"exit_status": float64(127),
@@ -1918,7 +1918,7 @@ func TestStepIsValid_OnlyMetadata(t *testing.T) {
 		Env: map[string]string{
 			"KEY": "value",
 		},
-		Agents: Agent{
+		Agents: map[string]interface{}{
 			"queue": "default",
 		},
 	}
@@ -2025,7 +2025,7 @@ func TestStepIsValid_WithPluginsOnly(t *testing.T) {
 	step := Step{
 		Label:  "Build CDK image",
 		Key:    "build_cdk_image",
-		Agents: Agent{"queue": "main"},
+		Agents: map[string]interface{}{"queue": "main"},
 		Plugins: []map[string]interface{}{
 			{"docker-compose#v5.12.1": map[string]interface{}{
 				"build": "cdk",
