@@ -68,3 +68,28 @@ echo "--- Logging in to gh"
 echo "+++ Tagging ${BUILDKITE_COMMIT} with ${TAG}"
 git tag "${TAG}"
 git push origin "${TAG}"
+
+# The plugin linter fails once README examples reference an older version than
+# the latest tag, so open a PR bumping them on the latest main, which may have
+# moved past the tagged commit. The tag is already pushed, so a failure here
+# only warns instead of failing the release.
+echo "--- Opening README version bump PR"
+BRANCH="release/readme-${TAG}"
+
+if git fetch origin main &&
+  git switch -c "${BRANCH}" FETCH_HEAD &&
+  sed -i -E "s/monorepo-diff#v[0-9]+\.[0-9]+\.[0-9]+/monorepo-diff#${TAG}/g" README.md &&
+  git diff --quiet -- README.md; then
+  echo "README already references ${TAG}"
+elif git -c user.name="buildkite-systems" -c user.email="dev@buildkite.com" \
+    commit -m "Bump README plugin version to ${TAG}" -- README.md &&
+  git push origin "${BRANCH}" &&
+  "${GH_DIR}/bin/gh" pr create --base main --head "${BRANCH}" \
+    --title "Bump README plugin version to ${TAG}" \
+    --body "Updates README examples to ${TAG} so the plugin linter passes on main."; then
+  echo "Opened README bump PR for ${TAG}"
+else
+  echo "⚠️ Could not open README bump PR. Update README examples to ${TAG} manually."
+  buildkite-agent annotate --style warning --context readme-bump \
+    "Released ${TAG}, but could not open a README version bump PR. Update README examples to ${TAG} manually, or lint on main will fail."
+fi
