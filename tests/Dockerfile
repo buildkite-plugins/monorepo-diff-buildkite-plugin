@@ -19,7 +19,7 @@ COPY --from=go /plugin /plugin
 RUN plugin-linter --id buildkite-plugins/monorepo-diff
 
 # Stage 3: Final image for testing the plugin
-FROM golang:1.26 AS test-stage
+FROM golang:1.27 AS test-stage
 
 WORKDIR /plugin
 
