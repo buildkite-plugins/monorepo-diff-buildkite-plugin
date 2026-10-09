@@ -66,7 +66,7 @@ steps:
 
   - label: ":bomb: Triggers"
     plugins:
-      - artifacts#v1.10.0:
+      - artifacts#v1.11.0:
           download:
             - "monorepo-diff-buildkite-plugin"
       - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
@@ -88,7 +88,7 @@ steps:
 
   - label: ":bomb: Testing notifications"
     plugins:
-      - artifacts#v1.10.0:
+      - artifacts#v1.11.0:
           download:
             - "monorepo-diff-buildkite-plugin"
       - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
@@ -101,7 +101,7 @@ steps:
 
   - label: ":bomb: Testing groups"
     plugins:
-      - artifacts#v1.10.0:
+      - artifacts#v1.11.0:
           download:
             - "monorepo-diff-buildkite-plugin"
       - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
@@ -118,7 +118,7 @@ steps:
 
   - label: ":bomb: Testing hooks"
     plugins:
-      - artifacts#v1.10.0:
+      - artifacts#v1.11.0:
           download:
             - "monorepo-diff-buildkite-plugin"
       - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
@@ -141,7 +141,7 @@ steps:
 
   - label: ":white_check_mark: Testing skip_on_no_changes depends_on resolution"
     plugins:
-      - artifacts#v1.10.0:
+      - artifacts#v1.11.0:
           download:
             - "monorepo-diff-buildkite-plugin"
       - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
@@ -162,7 +162,7 @@ steps:
 
   - label: ":bomb: Testing wait"
     plugins:
-      - artifacts#v1.10.0:
+      - artifacts#v1.11.0:
           download:
             - "monorepo-diff-buildkite-plugin"
       - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
@@ -177,7 +177,7 @@ steps:
 
   - label: ":bomb: Testing triggers and commands"
     plugins:
-      - artifacts#v1.10.0:
+      - artifacts#v1.11.0:
           download:
             - "monorepo-diff-buildkite-plugin"
       - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
@@ -211,7 +211,7 @@ steps:
 
   - label: ":testtube: Testing default config"
     plugins:
-      - artifacts#v1.10.0:
+      - artifacts#v1.11.0:
           download:
             - "monorepo-diff-buildkite-plugin"
       - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
@@ -225,7 +225,7 @@ steps:
 
   - label: ":testtube: Testing default config with map"
     plugins:
-      - artifacts#v1.10.0:
+      - artifacts#v1.11.0:
           download:
             - "monorepo-diff-buildkite-plugin"
       - ${BUILDKITE_PULL_REQUEST_REPO:-$BUILDKITE_REPO}#${BUILDKITE_COMMIT}:
