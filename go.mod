@@ -8,6 +8,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.10.2
 	github.com/buildkite/bintest/v3 v3.3.0
 	github.com/dlclark/regexp2 v1.12.0
+	github.com/dlclark/regexp2/v2 v2.8.4
 	github.com/google/go-cmp v0.7.0
 	github.com/sirupsen/logrus v1.10.2
 	github.com/stretchr/testify v1.12.1
