@@ -2,5 +2,26 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "dockerfile": {
+    "description": "config:recommended ignores **/tests/**, which hides tests/Dockerfile",
+    "ignorePaths": [
+      "**/node_modules/**",
+      "**/bower_components/**",
+      "**/vendor/**",
+      "**/examples/**",
+      "**/__tests__/**",
+      "**/test/**",
+      "**/__fixtures__/**"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "Keep Go versions in go.mod and Docker in sync",
+      "matchManagers": ["gomod", "dockerfile"],
+      "matchDepNames": ["go", "golang"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "groupName": "go-toolchain"
+    }
   ]
 }
