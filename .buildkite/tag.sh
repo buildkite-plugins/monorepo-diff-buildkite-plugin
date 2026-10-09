@@ -70,16 +70,18 @@ git tag "${TAG}"
 git push origin "${TAG}"
 
 # The plugin linter fails once README examples reference an older version than
-# the latest tag, so open a PR bumping them. The tag is already pushed, so a
-# failure here only warns instead of failing the release.
+# the latest tag, so open a PR bumping them on the latest main, which may have
+# moved past the tagged commit. The tag is already pushed, so a failure here
+# only warns instead of failing the release.
 echo "--- Opening README version bump PR"
 BRANCH="release/readme-${TAG}"
-sed -i -E "s/monorepo-diff#v[0-9]+\.[0-9]+\.[0-9]+/monorepo-diff#${TAG}/g" README.md
 
-if git diff --quiet -- README.md; then
+if git fetch origin main &&
+  git switch -c "${BRANCH}" FETCH_HEAD &&
+  sed -i -E "s/monorepo-diff#v[0-9]+\.[0-9]+\.[0-9]+/monorepo-diff#${TAG}/g" README.md &&
+  git diff --quiet -- README.md; then
   echo "README already references ${TAG}"
-elif git switch -c "${BRANCH}" &&
-  git -c user.name="buildkite-systems" -c user.email="dev@buildkite.com" \
+elif git -c user.name="buildkite-systems" -c user.email="dev@buildkite.com" \
     commit -m "Bump README plugin version to ${TAG}" -- README.md &&
   git push origin "${BRANCH}" &&
   "${GH_DIR}/bin/gh" pr create --base main --head "${BRANCH}" \
