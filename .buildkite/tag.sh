@@ -91,5 +91,5 @@ elif git -c user.name="buildkite-systems" -c user.email="dev@buildkite.com" \
 else
   echo "⚠️ Could not open README bump PR. Update README examples to ${TAG} manually."
   buildkite-agent annotate --style warning --context readme-bump \
-    "Released ${TAG}, but could not open a README version bump PR. Update README examples to ${TAG} manually, or lint on main will fail."
+    "Released ${TAG}, but could not open a README version bump PR. Update README examples to ${TAG} manually, or lint on main will fail." || true
 fi
