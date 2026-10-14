@@ -5,7 +5,7 @@ go 1.25
 toolchain go1.27.2
 
 require (
-	github.com/bmatcuk/doublestar/v4 v4.10.2
+	github.com/bmatcuk/doublestar/v4 v4.10.3
 	github.com/buildkite/bintest/v3 v3.3.0
 	github.com/dlclark/regexp2 v1.12.0
 	github.com/google/go-cmp v0.7.0
