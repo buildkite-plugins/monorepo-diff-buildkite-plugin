@@ -2,7 +2,7 @@ module github.com/buildkite-plugins/monorepo-diff-buildkite-plugin
 
 go 1.25
 
-toolchain go1.27.2
+toolchain go1.27.3
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.10.2
