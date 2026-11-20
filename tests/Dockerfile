@@ -1,5 +1,5 @@
 # Stage 1: Build the Go plugin using Goreleaser
-FROM goreleaser/goreleaser:v2.20.2 AS go
+FROM goreleaser/goreleaser:v2.20.3 AS go
 
 WORKDIR /plugin
 
